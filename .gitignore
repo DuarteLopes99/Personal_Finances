@@ -1,0 +1,14 @@
+# Personal financial data — never commit plaintext. Only the encrypted
+# store (data/transactions.csv.enc) is meant to be tracked; see
+# scripts/encrypt_store.py and README.md.
+data/*.csv
+data/*.dec
+data/*.xlsx
+data/*.xls
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+.DS_Store
+.env

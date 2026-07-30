@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Personal Finance Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --good:           #006300;
+    --border:         rgba(11,11,11,0.10);
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+    --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --good:           #0ca30c;
+      --border:         rgba(255,255,255,0.10);
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+      --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --good:           #0ca30c;
+    --border:         rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { margin: 0 0 20px; color: var(--text-secondary); font-size: 14px; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .card + .card { margin-top: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--text-secondary); font-weight: 600; }
+
+  .panel-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .panel-row label.filebtn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+    font-size: 13px; cursor: pointer; color: var(--text-primary); background: var(--page-plane);
+  }
+  .panel-row label.filebtn input { display: none; }
+  .panel-row label.filebtn.disabled { opacity: 0.45; pointer-events: none; }
+  #status-line { font-size: 13px; color: var(--text-secondary); margin-top: 10px; }
+  #status-line.warn { color: #ec835a; }
+  button.primary {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+    font-size: 13px; cursor: pointer; background: var(--series-1); color: #fff; font-weight: 600;
+  }
+  button.primary:disabled { opacity: 0.35; cursor: default; }
+  select {
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+    font-size: 13px; background: var(--surface-1); color: var(--text-primary);
+  }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile .label { font-size: 12px; color: var(--text-secondary); }
+  .tile .value { font-size: 26px; font-weight: 600; margin-top: 4px; }
+  .tile .value.pos { color: var(--good); }
+  .tile .value.neg { color: var(--series-8); }
+
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-box { position: relative; height: 280px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+  .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+  details.table-toggle summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); margin-top: 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th, table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--gridline); }
+  table th { color: var(--text-secondary); font-weight: 600; }
+  table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll-table { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .scroll-table table thead th { position: sticky; top: 0; background: var(--surface-1); }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .filters input[type=text] {
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+    font-size: 13px; background: var(--page-plane); color: var(--text-primary); min-width: 180px;
+  }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--page-plane); color: var(--text-secondary); border: 1px solid var(--border); }
+  .pill.income { color: var(--series-1); }
+  .pill.expense { color: var(--series-2); }
+  .pill.count { color: var(--series-8); border-color: var(--series-8); }
+
+  #review-empty { padding: 8px 0; }
+  button.link {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 4px 10px; font-size: 12px; color: var(--series-1); cursor: pointer;
+  }
+
+  .panel-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 40;
+  }
+  .side-panel {
+    position: fixed; top: 0; right: 0; height: 100%; width: min(380px, 92vw);
+    background: var(--surface-1); border-left: 1px solid var(--border);
+    box-shadow: -8px 0 24px rgba(0,0,0,0.15); z-index: 41;
+    padding: 20px; overflow-y: auto; box-sizing: border-box;
+  }
+  .side-panel h3 { margin: 0 0 4px; font-size: 16px; }
+  .side-panel .panel-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .panel-field { margin-bottom: 14px; }
+  .panel-field label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .panel-field .readonly { font-size: 13px; color: var(--text-primary); }
+  .panel-field select, .panel-field input[type=text] {
+    width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+    font-size: 13px; background: var(--page-plane); color: var(--text-primary); box-sizing: border-box;
+  }
+  #rp-remember-field { border-top: 1px solid var(--gridline); padding-top: 14px; }
+  #rp-remember-field label.checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-primary); }
+  #rp-remember-field .hint { font-size: 11px; color: var(--text-muted); margin: 4px 0 8px; }
+  .panel-actions { display: flex; gap: 8px; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Personal Finance Dashboard</h1>
+    <p>Reads the centralized transactions store, and can ingest a new monthly bank export directly in the browser.</p>
+  </header>
+
+  <div class="card">
+    <h2>Data source</h2>
+    <div class="panel-row">
+      <label class="filebtn">
+        📄 Load transactions.csv
+        <input id="file-store" type="file" accept=".csv">
+      </label>
+      <label class="filebtn">
+        🔒 Load encrypted (.enc)
+        <input id="file-store-enc" type="file" accept=".enc">
+      </label>
+      <label class="filebtn disabled" id="btn-monthly">
+        ➕ Add monthly file (xlsx/csv)
+        <input id="file-monthly" type="file" accept=".xlsx,.xls,.csv">
+      </label>
+      <button class="primary" id="btn-download" disabled>⬇ Download updated transactions.csv</button>
+      <button class="primary" id="btn-download-enc" disabled>🔒 Download encrypted (.enc)</button>
+      <button class="primary" id="btn-download-overrides" disabled>⬇ Download updated category_overrides.json</button>
+      <select id="year-filter"></select>
+    </div>
+    <div id="status-line">Attempting to load ../data/transactions.csv automatically…</div>
+  </div>
+
+  <div class="card">
+    <div class="tiles" id="tiles"></div>
+  </div>
+
+  <div class="card" id="review-card">
+    <h2>Needs Review <span id="review-count" class="pill count"></span></h2>
+    <div id="review-empty" style="display:none; color:var(--text-secondary); font-size:13px;">
+      Nothing to review — every expense either matched a specific category, or is a peer-to-peer
+      transfer with the counterparty's name already attached.
+    </div>
+    <div class="scroll-table" id="review-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Notes</th><th>Current guess</th><th class="num">Amount (€)</th><th></th></tr>
+        </thead>
+        <tbody id="review-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="charts-grid" style="margin-top:16px;">
+    <div class="card">
+      <h2>Income vs Expenses by month</h2>
+      <div class="chart-box"><canvas id="chart-trend"></canvas></div>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="trend-table"></div>
+      </details>
+    </div>
+    <div class="card">
+      <h2>Net balance by month</h2>
+      <div class="chart-box"><canvas id="chart-net"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Expense categories</h2>
+      <div class="chart-box"><canvas id="chart-expense-cat"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Income categories</h2>
+      <div class="chart-box"><canvas id="chart-income-cat"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Transactions</h2>
+    <div class="filters">
+      <input type="text" id="search-box" placeholder="Search notes / category…">
+      <select id="type-filter">
+        <option value="">All types</option>
+        <option value="Income">Income</option>
+        <option value="Expense">Expense</option>
+      </select>
+      <select id="cat-filter"><option value="">All categories</option></select>
+    </div>
+    <div class="scroll-table">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Type</th><th>Category</th><th>Sub-category</th><th>Method</th><th class="num">Amount (€)</th><th>Notes</th></tr>
+        </thead>
+        <tbody id="tx-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel-backdrop" id="review-panel-backdrop" hidden></div>
+<aside class="side-panel" id="review-panel" hidden>
+  <h3>Complete this transaction</h3>
+  <div class="panel-sub" id="rp-current-guess"></div>
+
+  <div class="panel-field">
+    <label>Date</label>
+    <div class="readonly" id="rp-date"></div>
+  </div>
+  <div class="panel-field">
+    <label>Notes (original description)</label>
+    <div class="readonly" id="rp-notes"></div>
+  </div>
+  <div class="panel-field">
+    <label>Amount (€)</label>
+    <div class="readonly" id="rp-amount"></div>
+  </div>
+
+  <div class="panel-field">
+    <label for="rp-category">Category</label>
+    <select id="rp-category"></select>
+  </div>
+  <div class="panel-field">
+    <label for="rp-subcategory">Sub-category</label>
+    <input type="text" id="rp-subcategory">
+  </div>
+  <div class="panel-field">
+    <label for="rp-method">Method</label>
+    <select id="rp-method"></select>
+  </div>
+
+  <div class="panel-field" id="rp-remember-field">
+    <label class="checkbox"><input type="checkbox" id="rp-remember"> Remember for future transactions like this</label>
+    <p class="hint">Only offered for unrecognized merchants — a peer-to-peer transfer's purpose can
+      change every month, so those are never auto-applied from a past correction.</p>
+    <input type="text" id="rp-keyword" placeholder="Match keyword (edit to the distinctive part)">
+  </div>
+
+  <div class="panel-actions">
+    <button class="primary" id="rp-save">Save</button>
+    <button id="rp-cancel">Cancel</button>
+  </div>
+</aside>
+
+<script src="vendor/papaparse.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
+<script>
+// ---------------------------------------------------------------------
+// Schema (kept in sync with finance_tracker/schema.py)
+// ---------------------------------------------------------------------
+const COLUMNS = ["transaction_id","Date","Type","Category","Sub-category","Method","Amount (€)","Notes","Month","Year","Source File"];
+const TYPE_INCOME = "Income";
+const TYPE_EXPENSE = "Expense";
+const SAVINGS_CATEGORY = "Poupança/Investimento";
+const EXPENSE_CATEGORIES = ["Necessário","Refeição","Lazer","Saúde","Geral","Poupança/Investimento","Comissões conta","Transferências Pessoais","Outros"];
+const INCOME_CATEGORIES = ["Salário","Salário_alim","Transferências Pessoais","Dinheiro","Outro"];
+const SERIES = ["--series-1","--series-2","--series-3","--series-4","--series-5","--series-6","--series-7","--series-8"];
+
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function colorFor(list, category) {
+  const i = list.indexOf(category);
+  return cssVar(SERIES[i >= 0 ? i % SERIES.length : SERIES.length - 1]);
+}
+
+// ---------------------------------------------------------------------
+// Categorization rules (kept in sync with finance_tracker/categorize.py)
+//
+// MBWay (and a plain bank "Transferência") is a payment RAIL, not a spending
+// category — the raw description is just "Trf. MB WAY para <name>", with no
+// merchant/purpose signal. So these route to "Transferências Pessoais" with
+// the counterparty's name as sub-category, while Method still records the
+// rail (MBWay / Transferência). This deliberately does NOT apply to the
+// historical seed data, where the user manually looked up each payment's
+// real purpose — that's preserved as-is.
+// ---------------------------------------------------------------------
+const MBWAY_NAME_RE = /mb\s*way\s+(?:para|de)\s+(.+)$/i;
+const TRANSFER_NAME_RE = /transfer[êe]ncia\s+(?:para|de)\s+(.+)$/i;
+
+function cleanName(raw) {
+  const name = raw.trim().replace(/^[.\s]+|[.\s]+$/g, "");
+  return name || "Diversos";
+}
+function mbwayCounterparty(description) {
+  const m = MBWAY_NAME_RE.exec(description);
+  return m ? cleanName(m[1]) : "Diversos";
+}
+function transferCounterparty(description) {
+  const m = TRANSFER_NAME_RE.exec(description);
+  return m ? cleanName(m[1]) : "Diversos";
+}
+
+const INCOME_RULES = [
+  [["mbway", "mb way"], "Transferências Pessoais", "Recebido", "MBWay"],
+  [["ordenado", "salário", "salario", "vencimento"], "Salário", "Salário", "Transferência"],
+  [["subsídio de alimentação", "subsidio de alimentacao", "cartão alimentação", "cartao alimentacao"], "Salário_alim", "Salário_alim", "Cartão Alimentação"],
+  [["reembolso", "estorno", "devolução", "devolucao"], "Transferências Pessoais", "Reembolso", "Transferência"],
+  [["transferência", "transferencia"], "Transferências Pessoais", "Recebido", "Transferência"],
+];
+const EXPENSE_RULES = [
+  [["levantamento", "atm"], "Geral", "Levantamento", "Levantamento"],
+
+  [["degiro", "trading212", "trading 212", "xtb", "etoro", "revolut trading", "interactive brokers"],
+    "Poupança/Investimento", "Ações/ETF", "Transferência"],
+  [["sgf", "gestora de fundo", "gestora fundo", "fundo de pensões", "fundo de pensoes",
+    "fundo pensões", "fundo pensoes", "ppr", "poupança reforma", "poupanca reforma"],
+    "Poupança/Investimento", "PPR/Fundo de Pensões", "Transferência"],
+  [["binance", "coinbase", "kraken", "criptomoeda", "cripto", "crypto"],
+    "Poupança/Investimento", "Criptomoeda", "Transferência"],
+
+  [["mbway", "mb way"], "Transferências Pessoais", mbwayCounterparty, "MBWay"],
+
+  [["supermercado", "continente", "pingo doce", "lidl", "aldi", "mercadona", "minipreço", "minipreco", "auchan"],
+    "Refeição", "Supermercado", "Cartão"],
+  [["padaria", "pastelaria"], "Refeição", "Padaria", "Cartão"],
+  [["restaurante", "café", "cafe", "pizzaria", "pizz", "churrasco", "gaucho", "marisqueira", "cervejaria"],
+    "Refeição", "Restaurante", "Cartão"],
+
+  [["combustível", "combustivel", "gasolina", "gasóleo", "gasoleo", "galp", "repsol", "cepsa", "prio", "bp"],
+    "Necessário", "Combustível", "Cartão"],
+  [["vodafone", "meo", "nowo", "nos", "telemóvel", "telemovel", "internet"],
+    "Necessário", "Telecomunicações", "Débito Direto"],
+  [["renda", "prestação casa", "prestacao casa", "crédito habitação", "credito habitacao", "condomínio", "condominio"],
+    "Necessário", "Habitação", "Débito Direto"],
+  [["seguros", "seguro", "fidelidade", "allianz", "tranquilidade", "ageas"],
+    "Necessário", "Seguros", "Débito Direto"],
+
+  [["farmácia", "farmacia", "wells"], "Saúde", "Farmácia", "Cartão"],
+  [["fisioterapia", "hospital", "clinica", "clínica", "dentista", "médico", "medico"],
+    "Saúde", "Consulta", "Cartão"],
+  [["ginásio", "ginasio", "fitness", "holmes place", "solinca"], "Saúde", "Ginásio", "Débito Direto"],
+
+  [["amazon", "ebay", "aliexpress", "eneba", "shein", "wook"], "Lazer", "Compras Online", "Cartão"],
+  [["netflix", "spotify", "disney", "hbo", "twitch", "youtube premium", "amazon prime"],
+    "Lazer", "Subscrição", "Cartão"],
+  [["bowling", "escape room", "cinema", "museu"], "Lazer", "Desporto e Diversão", "Cartão"],
+  [["flights", "booking", "ryanair", "tap", "easyjet", "hotel", "airbnb", "viagem"],
+    "Lazer", "Viagem", "Cartão"],
+  [["zara", "h&m", "primark", "decathlon", "sport zone"], "Lazer", "Roupa", "Cartão"],
+
+  [["comissão", "comissao", "manutenção de conta", "manutencao de conta", "imposto de selo", "imposto selo"],
+    "Comissões conta", "Comissão Bancária", "Débito Direto"],
+
+  // Generic named bank transfer with no merchant/purpose signal (checked
+  // last, so any more specific rule above still wins).
+  [["transferência", "transferencia"], "Transferências Pessoais", transferCounterparty, "Transferência"],
+];
+function wordMatch(text, keyword) {
+  const escaped = keyword.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`).test(text);
+}
+
+// ---------------------------------------------------------------------
+// User-taught overrides (see finance_tracker/overrides.py) — checked before
+// the built-in rules above, so a correction made in the "Needs Review" panel
+// always wins. Deliberately never used for Transferências Pessoais (MBWay /
+// named transfers): the same person can send money for a different reason
+// every month, so a name -> category rule would silently mis-categorize
+// future, unrelated transactions from them. Only offered for "Outros"/"Outro"
+// commercial fallbacks — see the review panel below.
+// ---------------------------------------------------------------------
+let overrides = [];
+
+function overridesToRules(txnType) {
+  return overrides
+    .filter(o => o.type === txnType || o.type === "both")
+    .map(o => [o.keywords, o.category, o.sub_category, o.method]);
+}
+
+function categorize(description, amount) {
+  const d = String(description).toLowerCase();
+  const txnType = amount > 0 ? "income" : "expense";
+  const rules = [...overridesToRules(txnType), ...(amount > 0 ? INCOME_RULES : EXPENSE_RULES)];
+  for (const [keywords, cat, sub, method] of rules) {
+    if (keywords.some(k => wordMatch(d, k))) {
+      const subCategory = typeof sub === "function" ? sub(description) : sub;
+      return [cat, subCategory, method];
+    }
+  }
+  return amount > 0 ? ["Outro", "Outro", "Transferência"] : ["Outros", "Outros", "Cartão"];
+}
+
+// ---------------------------------------------------------------------
+// AES-256-GCM + PBKDF2 (Web Crypto) — matches finance_tracker/crypto.py's
+// format exactly (salt[16] || nonce[12] || ciphertext+tag), same iteration
+// count, so a .enc file produced by either side decrypts on the other.
+// ---------------------------------------------------------------------
+const PBKDF2_ITERATIONS = 200000;
+const SALT_SIZE = 16;
+const NONCE_SIZE = 12;
+
+async function deriveAesKey(passphrase, salt, usage) {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    keyMaterial, { name: "AES-GCM", length: 256 }, false, [usage]
+  );
+}
+
+async function encryptToBlob(plaintextBytes, passphrase) {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_SIZE));
+  const nonce = crypto.getRandomValues(new Uint8Array(NONCE_SIZE));
+  const key = await deriveAesKey(passphrase, salt, "encrypt");
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, key, plaintextBytes));
+  const out = new Uint8Array(salt.length + nonce.length + ciphertext.length);
+  out.set(salt, 0); out.set(nonce, salt.length); out.set(ciphertext, salt.length + nonce.length);
+  return out;
+}
+
+async function decryptBlob(blobBytes, passphrase) {
+  const salt = blobBytes.slice(0, SALT_SIZE);
+  const nonce = blobBytes.slice(SALT_SIZE, SALT_SIZE + NONCE_SIZE);
+  const ciphertext = blobBytes.slice(SALT_SIZE + NONCE_SIZE);
+  const key = await deriveAesKey(passphrase, salt, "decrypt");
+  try {
+    return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, key, ciphertext));
+  } catch (e) {
+    throw new Error("Decryption failed — wrong passphrase, or the file is corrupted.");
+  }
+}
+
+// ---------------------------------------------------------------------
+// SHA-1 (pure JS) — must produce the same transaction_id as the Python
+// pipeline (finance_tracker/pipeline.py) so a file ingested via the CLI
+// and the same file re-added here dedupe against each other correctly.
+// ---------------------------------------------------------------------
+function sha1Hex(message) {
+  function rotl(n, s) { return (n << s) | (n >>> (32 - s)); }
+  const utf8 = unescape(encodeURIComponent(message));
+  const bytes = [];
+  for (let i = 0; i < utf8.length; i++) bytes.push(utf8.charCodeAt(i));
+  const bitLen = bytes.length * 8;
+  bytes.push(0x80);
+  while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 7; i >= 0; i--) bytes.push((bitLen / Math.pow(2, i * 8)) & 0xff);
+
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+  for (let chunkStart = 0; chunkStart < bytes.length; chunkStart += 64) {
+    const w = new Array(80).fill(0);
+    for (let i = 0; i < 16; i++) {
+      w[i] = (bytes[chunkStart + i * 4] << 24) | (bytes[chunkStart + i * 4 + 1] << 16) |
+             (bytes[chunkStart + i * 4 + 2] << 8) | (bytes[chunkStart + i * 4 + 3]);
+    }
+    for (let i = 16; i < 80; i++) w[i] = rotl(w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16], 1);
+
+    let [a, b, c, d, e] = [h0, h1, h2, h3, h4];
+    for (let i = 0; i < 80; i++) {
+      let f, k;
+      if (i < 20) { f = (b & c) | (~b & d); k = 0x5A827999; }
+      else if (i < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+      else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+      else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+      const temp = (rotl(a, 5) + f + e + k + w[i]) >>> 0;
+      e = d; d = c; c = rotl(b, 30); b = a; a = temp;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
+  }
+  return [h0, h1, h2, h3, h4].map(n => n.toString(16).padStart(8, "0")).join("");
+}
+function makeTransactionId(dateIso, description, amount) {
+  const key = `${dateIso}|${description.trim().toLowerCase()}|${amount.toFixed(2)}`;
+  return sha1Hex(key).slice(0, 16);
+}
+
+// ---------------------------------------------------------------------
+// Raw monthly file parsing (mirrors finance_tracker/loader.py)
+// ---------------------------------------------------------------------
+const DATE_ALIASES = ["Data Operação", "Data de Operação", "Data", "Date"];
+const DESCRIPTION_ALIASES = ["Descrição", "Descricao", "Descrição da transação", "Description"];
+const AMOUNT_ALIASES = ["Montante( EUR )", "Montante(EUR)", "Montante (EUR)", "Montante", "Amount", "Valor"];
+
+function findColumn(columns, aliases) {
+  return aliases.find(a => columns.includes(a));
+}
+
+function parseDateFlexible(value) {
+  if (value instanceof Date) {
+    const y = value.getFullYear(), m = value.getMonth() + 1, d = value.getDate();
+    return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  }
+  const s = String(value).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`; // day-first
+  const d2 = new Date(s);
+  if (!isNaN(d2)) return `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,"0")}-${String(d2.getDate()).padStart(2,"0")}`;
+  return null;
+}
+
+function parseAmount(value) {
+  const n = parseFloat(String(value).replace(",", ".").trim());
+  return isNaN(n) ? null : n;
+}
+
+function rawRowsToTransactions(rows, sourceFileName) {
+  if (!rows.length) return [];
+  const columns = Object.keys(rows[0]);
+  const dateCol = findColumn(columns, DATE_ALIASES);
+  const descCol = findColumn(columns, DESCRIPTION_ALIASES);
+  const amountCol = findColumn(columns, AMOUNT_ALIASES);
+  if (!dateCol || !descCol || !amountCol) {
+    throw new Error(`Could not find date/description/amount columns. Found: ${columns.join(", ")}`);
+  }
+
+  const out = [];
+  for (const row of rows) {
+    const dateIso = parseDateFlexible(row[dateCol]);
+    const amount = parseAmount(row[amountCol]);
+    const description = String(row[descCol] ?? "");
+    if (!dateIso || amount === null) continue;
+
+    const [category, subCategory, method] = categorize(description, amount);
+    const [year, month] = dateIso.split("-").map(Number);
+    out.push({
+      transaction_id: makeTransactionId(dateIso, description, amount),
+      Date: dateIso,
+      Type: amount > 0 ? TYPE_INCOME : TYPE_EXPENSE,
+      Category: category,
+      "Sub-category": subCategory,
+      Method: method,
+      "Amount (€)": Math.round(Math.abs(amount) * 100) / 100,
+      Notes: description,
+      Month: month,
+      Year: year,
+      "Source File": sourceFileName,
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------
+// App state
+// ---------------------------------------------------------------------
+let store = [];               // array of transaction objects (full history)
+let pendingAdded = 0, pendingDuplicate = 0;
+let overridesDirty = false;   // true once an override was added this session (enables its download button)
+
+function toCsv(rows) {
+  return Papa.unparse(rows, { columns: COLUMNS });
+}
+
+function overridesToCsvSafeJson() {
+  return JSON.stringify(overrides, null, 2) + "\n";
+}
+
+// Re-run categorization on rows still sitting in the generic fallback
+// (Outros/Outro) using the current overrides — so a rule taught in the
+// Needs Review panel immediately clears every other matching row, not just
+// the one you just fixed. Never touches Transferências Pessoais rows.
+function applyOverridesToStore() {
+  if (!overrides.length) return 0;
+  let changed = 0;
+  for (const r of store) {
+    const isFallback = (r.Type === TYPE_INCOME && r.Category === "Outro") ||
+                        (r.Type === TYPE_EXPENSE && r.Category === "Outros");
+    if (!isFallback) continue;
+    const signedAmount = r.Type === TYPE_INCOME ? Number(r["Amount (€)"]) : -Number(r["Amount (€)"]);
+    const [cat, sub, method] = categorize(r.Notes, signedAmount);
+    if (cat !== r.Category) {
+      r.Category = cat;
+      r["Sub-category"] = sub;
+      r.Method = method;
+      changed++;
+    }
+  }
+  return changed;
+}
+
+function mergeIntoStore(newRows) {
+  const known = new Set(store.map(r => r.transaction_id));
+  let added = 0, dup = 0;
+  for (const r of newRows) {
+    if (known.has(r.transaction_id)) { dup++; continue; }
+    known.add(r.transaction_id);
+    store.push(r);
+    added++;
+  }
+  return { added, dup };
+}
+
+function setStatus(msg, warn) {
+  const el = document.getElementById("status-line");
+  el.textContent = msg;
+  el.className = warn ? "warn" : "";
+}
+
+// ---------------------------------------------------------------------
+// Loading transactions.csv (auto-fetch, falls back to manual file picker —
+// fetch() of a local file is blocked by the browser under file:// origins,
+// so this silently no-ops there and the picker takes over)
+// ---------------------------------------------------------------------
+async function tryAutoLoad() {
+  try {
+    const res = await fetch("../data/transactions.csv");
+    if (!res.ok) throw new Error("not found");
+    const text = await res.text();
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true });
+    store = parsed.data;
+    setStatus(`Loaded data/transactions.csv automatically — ${store.length} transactions.`);
+    onStoreLoaded();
+  } catch (e) {
+    setStatus("Couldn't auto-load data/transactions.csv (expected if you opened this file directly — browsers block reading local files without a server). Use \"Load transactions.csv\" below.", true);
+  }
+}
+
+async function tryAutoLoadOverrides() {
+  try {
+    const res = await fetch("../data/category_overrides.json");
+    if (!res.ok) throw new Error("not found");
+    overrides = await res.json();
+  } catch (e) {
+    overrides = [];
+  }
+  if (store.length && applyOverridesToStore() > 0) renderAll();
+}
+
+function onStoreLoaded() {
+  document.getElementById("btn-monthly").classList.remove("disabled");
+  document.getElementById("btn-download-enc").disabled = false;
+  applyOverridesToStore();
+  renderAll();
+}
+
+document.getElementById("file-store").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const parsed = Papa.parse(reader.result, { header: true, skipEmptyLines: true, dynamicTyping: true });
+    store = parsed.data;
+    pendingAdded = 0; pendingDuplicate = 0;
+    document.getElementById("btn-download").disabled = true;
+    setStatus(`Loaded ${file.name} — ${store.length} transactions.`);
+    onStoreLoaded();
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById("file-store-enc").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const passphrase = window.prompt(`Passphrase to decrypt ${file.name}:`);
+  if (!passphrase) { e.target.value = ""; return; }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const plaintextBytes = await decryptBlob(new Uint8Array(reader.result), passphrase);
+      const text = new TextDecoder().decode(plaintextBytes);
+      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true });
+      store = parsed.data;
+      pendingAdded = 0; pendingDuplicate = 0;
+      document.getElementById("btn-download").disabled = true;
+      setStatus(`Decrypted and loaded ${file.name} — ${store.length} transactions.`);
+      onStoreLoaded();
+    } catch (err) {
+      setStatus(err.message, true);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+document.getElementById("file-monthly").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const isXlsx = /\.xlsx?$/i.test(file.name);
+  const reader = new FileReader();
+  reader.onload = () => {
+    let rows;
+    if (isXlsx) {
+      const wb = XLSX.read(reader.result, { type: "array", cellDates: true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    } else {
+      rows = Papa.parse(reader.result, { header: true, skipEmptyLines: true }).data;
+    }
+    try {
+      const newRows = rawRowsToTransactions(rows, file.name);
+      const { added, dup } = mergeIntoStore(newRows);
+      pendingAdded += added; pendingDuplicate += dup;
+      document.getElementById("btn-download").disabled = false;
+      setStatus(`${file.name}: parsed ${newRows.length} transactions — ${added} added, ${dup} already in the store. Total so far this session: +${pendingAdded} added / ${pendingDuplicate} duplicates skipped.`);
+      renderAll();
+    } catch (err) {
+      setStatus(`Could not process ${file.name}: ${err.message}`, true);
+    }
+  };
+  if (isXlsx) reader.readAsArrayBuffer(file); else reader.readAsText(file);
+});
+
+function sortedCsvText() {
+  return toCsv(store.slice().sort((a,b) => (a.Year-b.Year) || (a.Month-b.Month) || String(a.Date).localeCompare(String(b.Date))));
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("btn-download-enc").addEventListener("click", async () => {
+  const passphrase = window.prompt("Passphrase to encrypt transactions.csv.enc with:");
+  if (!passphrase) return;
+  const confirm = window.prompt("Confirm passphrase:");
+  if (confirm !== passphrase) { setStatus("Passphrases did not match — nothing was encrypted.", true); return; }
+  const plaintextBytes = new TextEncoder().encode(sortedCsvText());
+  const encryptedBytes = await encryptToBlob(plaintextBytes, passphrase);
+  downloadBlob(new Blob([encryptedBytes]), "transactions.csv.enc");
+  setStatus("Downloaded encrypted transactions.csv.enc.");
+});
+
+document.getElementById("btn-download").addEventListener("click", () => {
+  const csv = sortedCsvText();
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "transactions.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("year-filter").addEventListener("change", renderAll);
+document.getElementById("search-box").addEventListener("input", renderTable);
+document.getElementById("type-filter").addEventListener("change", renderTable);
+document.getElementById("cat-filter").addEventListener("change", renderTable);
+
+// ---------------------------------------------------------------------
+// Derived data + rendering
+// ---------------------------------------------------------------------
+let charts = {};
+
+function filteredByYear() {
+  const y = document.getElementById("year-filter").value;
+  if (!y || y === "all") return store;
+  return store.filter(r => String(r.Year) === y);
+}
+
+function monthKey(r) { return `${r.Year}-${String(r.Month).padStart(2,"0")}`; }
+
+function computeMonthlyOverview(rows) {
+  const byMonth = new Map();
+  for (const r of rows) {
+    const k = monthKey(r);
+    if (!byMonth.has(k)) byMonth.set(k, { key: k, year: r.Year, month: r.Month, income: 0, expense: 0, savings: 0 });
+    const bucket = byMonth.get(k);
+    const amt = Number(r["Amount (€)"]) || 0;
+    if (r.Type === TYPE_INCOME) bucket.income += amt;
+    else if (r.Category === SAVINGS_CATEGORY) bucket.savings += amt;
+    else bucket.expense += amt;
+  }
+  return [...byMonth.values()].sort((a,b) => a.key.localeCompare(b.key));
+}
+
+function computeCategoryBreakdown(rows, type) {
+  const byCat = new Map();
+  for (const r of rows) {
+    if (r.Type !== type) continue;
+    const amt = Number(r["Amount (€)"]) || 0;
+    byCat.set(r.Category, (byCat.get(r.Category) || 0) + amt);
+  }
+  return [...byCat.entries()].sort((a,b) => b[1]-a[1]);
+}
+
+function fmtEur(n) {
+  return new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+}
+
+function renderTiles(rows) {
+  const income = rows.filter(r => r.Type === TYPE_INCOME).reduce((s,r) => s + Number(r["Amount (€)"]||0), 0);
+  const savings = rows.filter(r => r.Category === SAVINGS_CATEGORY).reduce((s,r) => s + Number(r["Amount (€)"]||0), 0);
+  const expense = rows.filter(r => r.Type === TYPE_EXPENSE && r.Category !== SAVINGS_CATEGORY).reduce((s,r) => s + Number(r["Amount (€)"]||0), 0);
+  const net = income - expense;
+  const tiles = [
+    ["Income", income, "pos"],
+    ["Expenses", expense, "neg"],
+    ["Net", net, net >= 0 ? "pos" : "neg"],
+    ["Savings / Investments", savings, ""],
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(([label, value, cls]) => `
+    <div class="tile">
+      <div class="label">${label}</div>
+      <div class="value ${cls}">${fmtEur(value)}</div>
+    </div>`).join("");
+}
+
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function baseChartOptions(extra) {
+  return Object.assign({
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: cssVar("--text-secondary"), font: { size: 12 } } },
+      tooltip: {
+        backgroundColor: cssVar("--surface-1"), titleColor: cssVar("--text-primary"),
+        bodyColor: cssVar("--text-secondary"), borderColor: cssVar("--border"), borderWidth: 1,
+      },
+    },
+    scales: {
+      x: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted"), font: { size: 11 } } },
+      y: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted"), font: { size: 11 } }, beginAtZero: true },
+    },
+  }, extra || {});
+}
+
+function renderTrendChart(overview) {
+  destroyChart("trend");
+  const ctx = document.getElementById("chart-trend");
+  charts.trend = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: overview.map(o => o.key),
+      datasets: [
+        { label: "Income", data: overview.map(o => o.income), backgroundColor: cssVar("--series-1"), borderRadius: 4, maxBarThickness: 22 },
+        { label: "Expenses", data: overview.map(o => o.expense), backgroundColor: cssVar("--series-2"), borderRadius: 4, maxBarThickness: 22 },
+      ],
+    },
+    options: baseChartOptions(),
+  });
+
+  document.getElementById("trend-table").innerHTML = `
+    <div class="scroll-table"><table>
+      <thead><tr><th>Month</th><th class="num">Income</th><th class="num">Expenses</th><th class="num">Net</th></tr></thead>
+      <tbody>${overview.map(o => `<tr><td>${o.key}</td><td class="num">${fmtEur(o.income)}</td><td class="num">${fmtEur(o.expense)}</td><td class="num">${fmtEur(o.income-o.expense)}</td></tr>`).join("")}</tbody>
+    </table></div>`;
+}
+
+function renderNetChart(overview) {
+  destroyChart("net");
+  const ctx = document.getElementById("chart-net");
+  charts.net = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: overview.map(o => o.key),
+      datasets: [{
+        label: "Net", data: overview.map(o => o.income - o.expense),
+        borderColor: cssVar("--series-1"), backgroundColor: cssVar("--series-1") + "1a",
+        borderWidth: 2, pointRadius: 4, pointBackgroundColor: cssVar("--series-1"),
+        pointBorderColor: cssVar("--surface-1"), pointBorderWidth: 2, fill: true, tension: 0.15,
+      }],
+    },
+    options: baseChartOptions({ plugins: { legend: { display: false } }, scales: { y: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted") } }, x: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted") } } } }),
+  });
+}
+
+function renderCategoryChart(canvasId, chartKey, breakdown, palette) {
+  destroyChart(chartKey);
+  const ctx = document.getElementById(canvasId);
+  charts[chartKey] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: breakdown.map(([cat]) => cat),
+      datasets: [{
+        data: breakdown.map(([, amt]) => amt),
+        backgroundColor: breakdown.map(([cat]) => colorFor(palette, cat)),
+        borderRadius: 4, maxBarThickness: 20,
+      }],
+    },
+    options: baseChartOptions({
+      indexAxis: "y",
+      plugins: { legend: { display: false } },
+    }),
+  });
+}
+
+function renderTable() {
+  const search = document.getElementById("search-box").value.toLowerCase();
+  const typeF = document.getElementById("type-filter").value;
+  const catF = document.getElementById("cat-filter").value;
+  const rows = filteredByYear()
+    .filter(r => !typeF || r.Type === typeF)
+    .filter(r => !catF || r.Category === catF)
+    .filter(r => !search || `${r.Notes} ${r.Category} ${r["Sub-category"]}`.toLowerCase().includes(search))
+    .sort((a,b) => String(b.Date).localeCompare(String(a.Date)))
+    .slice(0, 500);
+
+  document.getElementById("tx-body").innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.Date}</td>
+      <td><span class="pill ${r.Type === TYPE_INCOME ? "income" : "expense"}">${r.Type}</span></td>
+      <td>${r.Category}</td>
+      <td>${r["Sub-category"] || ""}</td>
+      <td>${r.Method || ""}</td>
+      <td class="num">${Number(r["Amount (€)"]).toFixed(2)}</td>
+      <td>${r.Notes || ""}</td>
+    </tr>`).join("");
+}
+
+// ---------------------------------------------------------------------
+// Needs Review — expenses whose category came from a generic fallback
+// ("Outros") or a peer-to-peer transfer ("Transferências Pessoais") rather
+// than a specific merchant/purpose match. Fixing one here edits that row in
+// place; "remember" (Outros only) also teaches an override so every other
+// matching row clears immediately and future monthly files benefit too.
+// ---------------------------------------------------------------------
+const REVIEW_METHODS = ["Cartão", "MBWay", "Dinheiro", "Débito Direto", "Transferência", "Levantamento"];
+
+function reviewQueue() {
+  return store.filter(r => r.Type === TYPE_EXPENSE && (r.Category === "Outros" || r.Category === "Transferências Pessoais"));
+}
+
+function renderReviewQueue() {
+  const queue = reviewQueue().sort((a, b) => String(b.Date).localeCompare(String(a.Date)));
+  document.getElementById("review-count").textContent = queue.length;
+  document.getElementById("review-empty").style.display = queue.length ? "none" : "block";
+  document.getElementById("review-table-wrap").style.display = queue.length ? "block" : "none";
+
+  document.getElementById("review-body").innerHTML = queue.map(r => `
+    <tr>
+      <td>${r.Date}</td>
+      <td>${r.Notes || ""}</td>
+      <td>${r.Category}${r["Sub-category"] ? " / " + r["Sub-category"] : ""}</td>
+      <td class="num">${Number(r["Amount (€)"]).toFixed(2)}</td>
+      <td><button class="link" data-review-id="${r.transaction_id}">Review</button></td>
+    </tr>`).join("");
+
+  document.querySelectorAll("[data-review-id]").forEach(btn => {
+    btn.addEventListener("click", () => openReviewPanel(btn.dataset.reviewId));
+  });
+}
+
+function openReviewPanel(transactionId) {
+  const row = store.find(r => r.transaction_id === transactionId);
+  if (!row) return;
+
+  document.getElementById("rp-current-guess").textContent =
+    `Currently guessed as: ${row.Category}${row["Sub-category"] ? " / " + row["Sub-category"] : ""}`;
+  document.getElementById("rp-date").textContent = row.Date;
+  document.getElementById("rp-notes").textContent = row.Notes || "";
+  document.getElementById("rp-amount").textContent = Number(row["Amount (€)"]).toFixed(2);
+
+  const catSel = document.getElementById("rp-category");
+  catSel.innerHTML = EXPENSE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join("");
+  catSel.value = row.Category;
+
+  document.getElementById("rp-subcategory").value = row["Sub-category"] || "";
+
+  const methodSel = document.getElementById("rp-method");
+  methodSel.innerHTML = REVIEW_METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
+  methodSel.value = row.Method || "Cartão";
+
+  // Only a true "we have no idea" fallback (Outros) is safe to learn from —
+  // a peer-to-peer transfer's purpose isn't a stable property of the sender.
+  const canRemember = row.Category === "Outros";
+  document.getElementById("rp-remember-field").style.display = canRemember ? "block" : "none";
+  document.getElementById("rp-remember").checked = false;
+  document.getElementById("rp-keyword").value = canRemember ? (row.Notes || "").toLowerCase() : "";
+
+  document.getElementById("review-panel").dataset.transactionId = transactionId;
+  document.getElementById("review-panel").hidden = false;
+  document.getElementById("review-panel-backdrop").hidden = false;
+}
+
+function closeReviewPanel() {
+  document.getElementById("review-panel").hidden = true;
+  document.getElementById("review-panel-backdrop").hidden = true;
+}
+
+document.getElementById("rp-cancel").addEventListener("click", closeReviewPanel);
+document.getElementById("review-panel-backdrop").addEventListener("click", closeReviewPanel);
+
+document.getElementById("rp-save").addEventListener("click", () => {
+  const transactionId = document.getElementById("review-panel").dataset.transactionId;
+  const row = store.find(r => r.transaction_id === transactionId);
+  if (!row) return;
+
+  const category = document.getElementById("rp-category").value;
+  const subCategory = document.getElementById("rp-subcategory").value.trim() || "Outros";
+  const method = document.getElementById("rp-method").value;
+  const remember = document.getElementById("rp-remember-field").style.display !== "none" &&
+                   document.getElementById("rp-remember").checked;
+
+  row.Category = category;
+  row["Sub-category"] = subCategory;
+  row.Method = method;
+
+  if (remember) {
+    const keywords = document.getElementById("rp-keyword").value
+      .split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+    if (keywords.length) {
+      overrides.push({ keywords, type: "expense", category, sub_category: subCategory, method });
+      overridesDirty = true;
+      document.getElementById("btn-download-overrides").disabled = false;
+      applyOverridesToStore();
+    }
+  }
+
+  document.getElementById("btn-download").disabled = false;
+  closeReviewPanel();
+  renderAll();
+});
+
+document.getElementById("btn-download-overrides").addEventListener("click", () => {
+  downloadBlob(new Blob([overridesToCsvSafeJson()], { type: "application/json" }), "category_overrides.json");
+  setStatus("Downloaded updated category_overrides.json.");
+});
+
+function refreshFilters() {
+  const yearSel = document.getElementById("year-filter");
+  const years = [...new Set(store.map(r => r.Year))].sort();
+  const current = yearSel.value;
+  yearSel.innerHTML = `<option value="all">All years</option>` + years.map(y => `<option value="${y}">${y}</option>`).join("");
+  if (years.map(String).includes(current)) yearSel.value = current;
+
+  const catSel = document.getElementById("cat-filter");
+  const cats = [...new Set(store.map(r => r.Category))].sort();
+  const currentCat = catSel.value;
+  catSel.innerHTML = `<option value="">All categories</option>` + cats.map(c => `<option value="${c}">${c}</option>`).join("");
+  if (cats.includes(currentCat)) catSel.value = currentCat;
+}
+
+function renderAll() {
+  refreshFilters();
+  const rows = filteredByYear();
+  renderTiles(rows);
+  renderTrendChart(computeMonthlyOverview(rows));
+  renderNetChart(computeMonthlyOverview(rows));
+  renderCategoryChart("chart-expense-cat", "expCat", computeCategoryBreakdown(rows, TYPE_EXPENSE), EXPENSE_CATEGORIES);
+  renderCategoryChart("chart-income-cat", "incCat", computeCategoryBreakdown(rows, TYPE_INCOME), INCOME_CATEGORIES);
+  renderTable();
+  renderReviewQueue();
+}
+
+tryAutoLoad();
+tryAutoLoadOverrides();
+</script>
+</body>
+</html>

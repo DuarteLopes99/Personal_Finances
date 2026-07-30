@@ -1,0 +1,7 @@
+pandas
+openpyxl
+cryptography
+matplotlib
+
+# Only needed to run notebook/pipeline_walkthrough.ipynb:
+# jupyterlab (or notebook / VS Code's Jupyter extension)
