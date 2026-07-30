@@ -85,6 +85,11 @@
     font-size: 13px; cursor: pointer; background: var(--series-1); color: #fff; font-weight: 600;
   }
   button.primary:disabled { opacity: 0.35; cursor: default; }
+  button.danger {
+    border: 1px solid var(--series-8); border-radius: 8px; padding: 8px 12px;
+    font-size: 13px; cursor: pointer; background: var(--surface-1); color: var(--series-8); font-weight: 600;
+  }
+  button.danger:disabled { opacity: 0.35; cursor: default; }
   select {
     border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
     font-size: 13px; background: var(--surface-1); color: var(--text-primary);
@@ -120,6 +125,18 @@
   .pill.income { color: var(--series-1); }
   .pill.expense { color: var(--series-2); }
   .pill.count { color: var(--series-8); border-color: var(--series-8); }
+
+  .manual-hint { font-size: 12px; color: var(--text-muted); margin: -4px 0 12px; }
+  .manual-form .mf-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
+  .manual-form label {
+    display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary);
+  }
+  .manual-form label.mf-notes { flex: 1; min-width: 220px; }
+  .manual-form select, .manual-form input[type=text], .manual-form input[type=date], .manual-form input[type=number] {
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+    font-size: 13px; background: var(--page-plane); color: var(--text-primary); min-width: 140px;
+  }
+  .manual-form input[type=text] { min-width: 220px; width: 100%; box-sizing: border-box; }
 
   #review-empty { padding: 8px 0; }
   button.link {
@@ -170,15 +187,54 @@
         <input id="file-store-enc" type="file" accept=".enc">
       </label>
       <label class="filebtn disabled" id="btn-monthly">
-        ➕ Add monthly file (xlsx/csv)
-        <input id="file-monthly" type="file" accept=".xlsx,.xls,.csv">
+        ➕ Add monthly file(s) (xlsx/csv)
+        <input id="file-monthly" type="file" accept=".xlsx,.xls,.csv" multiple>
       </label>
+      <button class="danger" id="btn-clear" disabled>🗑 Clear all data</button>
       <button class="primary" id="btn-download" disabled>⬇ Download updated transactions.csv</button>
       <button class="primary" id="btn-download-enc" disabled>🔒 Download encrypted (.enc)</button>
       <button class="primary" id="btn-download-overrides" disabled>⬇ Download updated category_overrides.json</button>
       <select id="year-filter"></select>
     </div>
     <div id="status-line">Attempting to load ../data/transactions.csv automatically…</div>
+  </div>
+
+  <div class="card">
+    <h2>Add a transaction manually</h2>
+    <p class="manual-hint">For anything that doesn't come from a bank export — cash you received or spent, a gift, etc.</p>
+    <div class="manual-form">
+      <div class="mf-row">
+        <label>Type
+          <select id="mf-type">
+            <option value="Expense">Expense</option>
+            <option value="Income">Income</option>
+          </select>
+        </label>
+        <label>Date
+          <input type="date" id="mf-date">
+        </label>
+        <label>Amount (€)
+          <input type="number" id="mf-amount" min="0" step="0.01" placeholder="0.00">
+        </label>
+      </div>
+      <div class="mf-row">
+        <label>Category
+          <select id="mf-category"></select>
+        </label>
+        <label>Sub-category
+          <input type="text" id="mf-subcategory" placeholder="optional">
+        </label>
+        <label>Method
+          <select id="mf-method"></select>
+        </label>
+      </div>
+      <div class="mf-row">
+        <label class="mf-notes">Notes
+          <input type="text" id="mf-notes" placeholder="e.g. Cash gift from parents">
+        </label>
+        <button class="primary" id="mf-add">➕ Add transaction</button>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -668,9 +724,28 @@ async function tryAutoLoadOverrides() {
 function onStoreLoaded() {
   document.getElementById("btn-monthly").classList.remove("disabled");
   document.getElementById("btn-download-enc").disabled = false;
+  document.getElementById("btn-clear").disabled = false;
   applyOverridesToStore();
   renderAll();
 }
+
+document.getElementById("btn-clear").addEventListener("click", () => {
+  if (!store.length) { setStatus("Nothing to clear — the store is already empty."); return; }
+  const ok = window.confirm(
+    `This clears all ${store.length} loaded transactions from this browser session.\n\n` +
+    `Nothing on disk is touched unless you click a Download button afterward — reload the ` +
+    `page (or load transactions.csv again) to get today's data back if you change your mind.\n\n` +
+    `Continue?`
+  );
+  if (!ok) return;
+
+  store = [];
+  pendingAdded = 0; pendingDuplicate = 0;
+  document.getElementById("btn-download").disabled = true;
+  document.getElementById("btn-monthly").classList.remove("disabled");
+  setStatus("Cleared. Upload monthly files below to rebuild the store from scratch — duplicates within and across the files you add are still detected automatically.");
+  renderAll();
+});
 
 document.getElementById("file-store").addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -710,32 +785,56 @@ document.getElementById("file-store-enc").addEventListener("change", (e) => {
   reader.readAsArrayBuffer(file);
 });
 
-document.getElementById("file-monthly").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const isXlsx = /\.xlsx?$/i.test(file.name);
-  const reader = new FileReader();
-  reader.onload = () => {
-    let rows;
-    if (isXlsx) {
-      const wb = XLSX.read(reader.result, { type: "array", cellDates: true });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-    } else {
-      rows = Papa.parse(reader.result, { header: true, skipEmptyLines: true }).data;
-    }
+function readFileAs(file, asArrayBuffer) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("Could not read file"));
+    if (asArrayBuffer) reader.readAsArrayBuffer(file); else reader.readAsText(file);
+  });
+}
+
+// Multiple files are processed one at a time, in order, into the SAME
+// running `store` — so a transaction appearing in more than one of the
+// files you just selected (or already present from an earlier upload) is
+// caught the same way a duplicate re-upload of one file always was, via
+// each row's transaction_id hash. No separate "cross-file" dedup logic is
+// needed; it falls out of merging sequentially into one store.
+document.getElementById("file-monthly").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+
+  let batchAdded = 0, batchDuplicate = 0;
+  const perFile = [];
+
+  for (const file of files) {
+    const isXlsx = /\.xlsx?$/i.test(file.name);
     try {
+      const result = await readFileAs(file, isXlsx);
+      let rows;
+      if (isXlsx) {
+        const wb = XLSX.read(result, { type: "array", cellDates: true });
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+      } else {
+        rows = Papa.parse(result, { header: true, skipEmptyLines: true }).data;
+      }
       const newRows = rawRowsToTransactions(rows, file.name);
       const { added, dup } = mergeIntoStore(newRows);
-      pendingAdded += added; pendingDuplicate += dup;
-      document.getElementById("btn-download").disabled = false;
-      setStatus(`${file.name}: parsed ${newRows.length} transactions — ${added} added, ${dup} already in the store. Total so far this session: +${pendingAdded} added / ${pendingDuplicate} duplicates skipped.`);
-      renderAll();
+      batchAdded += added; batchDuplicate += dup;
+      perFile.push(`${file.name}: +${added} / ${dup} dup`);
     } catch (err) {
-      setStatus(`Could not process ${file.name}: ${err.message}`, true);
+      perFile.push(`${file.name}: FAILED — ${err.message}`);
     }
-  };
-  if (isXlsx) reader.readAsArrayBuffer(file); else reader.readAsText(file);
+  }
+
+  pendingAdded += batchAdded; pendingDuplicate += batchDuplicate;
+  document.getElementById("btn-download").disabled = false;
+  setStatus(
+    `${files.length} file(s): ${perFile.join("; ")}. ` +
+    `Session total: +${pendingAdded} added / ${pendingDuplicate} duplicates skipped.`
+  );
+  renderAll();
+  e.target.value = ""; // allow re-selecting the same file(s) again later
 });
 
 function sortedCsvText() {
@@ -1072,6 +1171,71 @@ function renderAll() {
   renderReviewQueue();
 }
 
+// ---------------------------------------------------------------------
+// Manual entry — for anything with no bank export at all (cash received or
+// spent, a gift, etc.). Goes through the same mergeIntoStore() as an upload,
+// so an accidental duplicate click (identical date + notes + amount) is
+// caught the same way — see the "Avoiding duplicates" note in the README.
+// ---------------------------------------------------------------------
+function populateManualCategoryOptions() {
+  const type = document.getElementById("mf-type").value;
+  const cats = type === TYPE_INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  document.getElementById("mf-category").innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join("");
+}
+
+function initManualForm() {
+  document.getElementById("mf-date").value = new Date().toISOString().slice(0, 10);
+  populateManualCategoryOptions();
+  const methodSel = document.getElementById("mf-method");
+  methodSel.innerHTML = REVIEW_METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
+  methodSel.value = "Dinheiro";
+}
+
+document.getElementById("mf-type").addEventListener("change", populateManualCategoryOptions);
+
+document.getElementById("mf-add").addEventListener("click", () => {
+  const type = document.getElementById("mf-type").value;
+  const dateIso = document.getElementById("mf-date").value;
+  const amount = parseFloat(document.getElementById("mf-amount").value);
+  const category = document.getElementById("mf-category").value;
+  const subCategory = document.getElementById("mf-subcategory").value.trim() || category;
+  const method = document.getElementById("mf-method").value;
+  const notes = document.getElementById("mf-notes").value.trim();
+
+  if (!dateIso) { setStatus("Pick a date for the manual transaction.", true); return; }
+  if (!amount || amount <= 0) { setStatus("Enter an amount greater than zero.", true); return; }
+
+  const [year, month] = dateIso.split("-").map(Number);
+  const signedAmount = type === TYPE_INCOME ? amount : -amount;
+  const row = {
+    transaction_id: makeTransactionId(dateIso, notes || `Manual ${type} ${category}`, signedAmount),
+    Date: dateIso,
+    Type: type,
+    Category: category,
+    "Sub-category": subCategory,
+    Method: method,
+    "Amount (€)": Math.round(amount * 100) / 100,
+    Notes: notes,
+    Month: month,
+    Year: year,
+    "Source File": "Manual entry",
+  };
+
+  const { added } = mergeIntoStore([row]);
+  if (added) {
+    document.getElementById("btn-download").disabled = false;
+    document.getElementById("btn-monthly").classList.remove("disabled");
+    document.getElementById("btn-clear").disabled = false;
+    setStatus(`Added manual ${type.toLowerCase()}: ${fmtEur(signedAmount)} (${category}).`);
+    document.getElementById("mf-amount").value = "";
+    document.getElementById("mf-notes").value = "";
+  } else {
+    setStatus("That matches a transaction already in the store (same date, notes, and amount) — not added again. Add a distinguishing note if this is genuinely a separate transaction.", true);
+  }
+  renderAll();
+});
+
+initManualForm();
 tryAutoLoad();
 tryAutoLoadOverrides();
 </script>

@@ -6,6 +6,46 @@ monthly bank exports into it, an HTML dashboard to visualize it (and ingest
 new files directly in the browser), and a notebook that walks through the
 whole process.
 
+## Quick reference
+
+```bash
+# Setup
+pip install -r requirements.txt
+
+# One-time seed from an existing Excel tracker (Expenses/Income sheets)
+python3 scripts/seed_from_template.py path/to/your_tracker.xlsx
+
+# Ingest new monthly bank export(s) — one or several at once
+python3 scripts/ingest_monthly.py path/to/new_export.xlsx
+python3 scripts/ingest_monthly.py nov.xlsx dec.xlsx jan.xlsx --store data/transactions.csv
+
+# Start over — backs up the current store first, never deletes outright
+python3 scripts/reset_store.py
+
+# Encrypt before committing to git / decrypt back to a working copy
+python3 scripts/encrypt_store.py
+python3 scripts/decrypt_store.py
+
+# Run the dashboard
+python3 -m http.server 8792
+# -> http://localhost:8792/dashboard/index.html
+```
+
+A few things worth knowing before you dig into the rest of this document:
+
+- **Duplicates are caught automatically**, across re-uploads, across multiple files, and against
+  whatever's already in the store — no manual bookkeeping needed. See "Avoiding duplicates" below
+  for the one edge case it can't catch.
+- **`data/transactions.csv` is gitignored on purpose** — it holds real financial data. Only
+  `data/transactions.csv.enc` (produced by `encrypt_store.py`) is meant to be committed.
+  `data/category_overrides.json` has no personal data in it (just merchant keywords) and is safe
+  to commit as-is.
+- **The dashboard isn't just a viewer** — besides charts, it can ingest new files, add a single
+  transaction by hand (cash, gifts, anything with no bank export), fix miscategorized transactions
+  in the "Needs Review" panel, and load/save everything encrypted, all client-side.
+- **`FINANCE_PASSPHRASE`** as an environment variable skips the interactive passphrase prompt for
+  `encrypt_store.py` / `decrypt_store.py` — handy for scripting, but don't commit it anywhere.
+
 ## Project layout
 
 ```
@@ -20,7 +60,8 @@ finance_tracker/            Core library
 
 scripts/
   seed_from_template.py       One-time import from an existing Excel tracker -> data/transactions.csv
-  ingest_monthly.py           CLI: ingest a new monthly file into data/transactions.csv
+  ingest_monthly.py           CLI: ingest one or more monthly files into data/transactions.csv
+  reset_store.py              Back up (never delete) and empty the store, to rebuild from scratch
   encrypt_store.py            Encrypt data/transactions.csv -> data/transactions.csv.enc
   decrypt_store.py            Decrypt data/transactions.csv.enc -> data/transactions.csv
 
@@ -108,6 +149,32 @@ transfer's purpose isn't — the same person might send you rent one month and a
 next, so learning "this name → this category" would silently mis-categorize unrelated future
 transactions from them. Those get fixed one at a time instead.
 
+## Avoiding duplicates
+
+Every transaction's `transaction_id` is a SHA-1 hash of `date | description | amount` — a
+property of the transaction itself, not of which file it came from or when you uploaded it. That
+means duplicates are caught in every situation that matters, with no extra step:
+
+- **Re-uploading the exact same monthly file** — every row hashes the same way, so it adds zero
+  new transactions the second time.
+- **The same transaction appearing in two different files you upload together** — e.g. a general
+  account export and a card-specific export that both happen to cover the same purchase. Both the
+  dashboard and `scripts/ingest_monthly.py` process multiple files by merging each one into the
+  same running store in turn, so the second file's copy is recognized as already-known the moment
+  it's processed — not silently double-counted.
+- **A file that overlaps with data you already have** — the same check runs against whatever is
+  already in `data/transactions.csv` (or already loaded in the browser), regardless of when or how
+  it got there.
+- **A manual entry you accidentally add twice** — the "Add a transaction manually" form builds the
+  same kind of hash, so clicking "Add" twice on identical values only ever produces one row.
+
+What it *can't* catch: two genuinely different transactions that happen to share the same date,
+description, and amount (rare, but possible — e.g. two identical €5 coffees on the same day would
+hash identically and the second would be treated as a duplicate). If you need to start over
+entirely and rebuild from a clean slate — e.g. after experimenting, or to double-check a batch of
+files imports the way you expect — use `scripts/reset_store.py` (CLI) or "🗑 Clear all data"
+(dashboard), then re-add your files; the same hash-based check applies throughout the rebuild.
+
 ## Usage
 
 **Setup:**
@@ -120,11 +187,21 @@ pip install -r requirements.txt
 python3 scripts/seed_from_template.py path/to/your_tracker.xlsx
 ```
 
-**Each new month**, ingest the raw bank export:
+**Each new month**, ingest the raw bank export — you can pass several files at once (see
+"Avoiding duplicates" below for what happens if two of them overlap):
 ```bash
 python3 scripts/ingest_monthly.py path/to/new_export.xlsx
+python3 scripts/ingest_monthly.py nov.xlsx dec.xlsx jan.xlsx --store data/transactions.csv
 ```
 This prints how many transactions were added vs. already present, and updates `data/transactions.csv` in place.
+
+**Starting over** — back up and empty the store, then rebuild it:
+```bash
+python3 scripts/reset_store.py
+# then re-run seed_from_template.py / ingest_monthly.py as above
+```
+This never deletes your data outright — it renames the current `transactions.csv` to a
+timestamped `transactions.backup-<timestamp>.csv` first, so resetting is always reversible.
 
 **Dashboard** — serve the repo over a local HTTP server (plain `file://` blocks the dashboard's
 auto-load of `data/transactions.csv` due to browser security restrictions) and open it:
@@ -132,12 +209,22 @@ auto-load of `data/transactions.csv` due to browser security restrictions) and o
 python3 -m http.server 8792
 ```
 then visit `http://localhost:8792/dashboard/index.html`. From there you can also pick "Add monthly
-file (xlsx/csv)" to categorize and merge a new month directly in the browser, then "Download
-updated transactions.csv" to save the result back over `data/transactions.csv`. The "Needs
-Review" panel (see below) lets you fix anything the keyword rules couldn't confidently categorize;
-"Download updated category_overrides.json" saves any merchant rules you taught it that way, so
+file(s) (xlsx/csv)" — selecting multiple files at once is fine — to categorize and merge new
+months directly in the browser, then "Download updated transactions.csv" to save the result back
+over `data/transactions.csv`. "🗑 Clear all data" resets the in-browser working copy to empty (it
+only touches what's loaded in the tab — nothing on disk changes unless you download afterward),
+so you can rebuild from scratch the same way. The "Needs Review" panel (see below) lets you fix
+anything the keyword rules couldn't confidently categorize; "Download updated
+category_overrides.json" saves any merchant rules you taught it that way, so
 they're picked up by future CLI ingestion too — unlike `transactions.csv`, this file has no
 personal financial data in it (just merchant keywords), so it's fine to commit as-is.
+
+**Adding a transaction manually** — for anything with no bank export at all (cash you received or
+spent, a gift, etc.), use the "Add a transaction manually" form: pick Income or Expense, fill in
+the date, amount, category, and any notes, and it's added straight into the store — same charts,
+same table, same "Download updated transactions.csv" afterward. It goes through the same
+duplicate check as an upload, so double-clicking "Add" by accident on identical values won't
+create two rows (see "Avoiding duplicates" below).
 
 **Notebook** — `notebook/pipeline_walkthrough.ipynb` runs the same load → categorize → merge →
 aggregate steps with explanations, useful as a reference or for ad-hoc analysis beyond what the
