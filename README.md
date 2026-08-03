@@ -10,6 +10,8 @@ whole process.
 
 ```bash
 # Setup
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
 # One-time seed from an existing Excel tracker (Expenses/Income sheets)
