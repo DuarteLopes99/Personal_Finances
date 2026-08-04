@@ -85,67 +85,96 @@ Every transaction — income or expense — lives in one table with these column
 `transaction_id, Date, Type, Category, Sub-category, Method, Amount (€), Notes, Month, Year, Source File`
 
 - **Type** is `Income` or `Expense`.
-- **Method** is the payment method for expenses (Cartão, MBWay, Dinheiro, Débito Direto, …) or the source for income (Transferência, MBWay, …).
+- **Method** is the payment rail: `Cartão, MBWay, Transferência, Débito Direto, Cartão
+  Alimentação, Dinheiro, Levantamento` (plus `Não especificado` for a handful of historical rows
+  that never had one recorded). **MBWay and Transferência are only ever a Method, never a
+  Category** — see below for why that distinction matters.
 - **transaction_id** is a SHA-1 hash of `date | description | amount`, computed identically in
   Python (`finance_tracker/pipeline.py`) and in the dashboard's JavaScript — so re-ingesting the
   same monthly file (via the CLI or the browser) is always a no-op, whichever tool you used first.
 
 ### Category taxonomy
 
+Categorization happens in two independent steps, kept deliberately separate:
+
+1. **Category / Sub-category** comes only from purpose/merchant keywords (supermarket,
+   restaurant, cinema, Vodafone, Degiro, ...). MBWay and "transferência" are never purpose
+   signals — they say nothing about *why* money moved — so they never appear in this step.
+2. **Method** (the rail) is detected independently and can override whatever the category step
+   suggested: a description containing "mbway" is always `Method=MBWay`, regardless of what
+   it's for.
+
+This matters because a rail keyword and a purpose keyword can appear in the same description —
+e.g. `"Mbway - Cinemas"` — and both need to be honored: **Category: Lazer / Cinema, Method:
+MBWay**. An earlier version of this project treated MBWay as its own category ("Transferências
+Pessoais"), which meant the rail always won and silently swallowed the purpose signal — any
+purchase paid via MBWay landed in a generic transfer bucket even when the description clearly
+said what it was for. That's fixed now.
+
 | Category | Typical sub-categories | Matches on (examples) |
 |---|---|---|
 | **Necessário** | Combustível, Telecomunicações, Habitação, Seguros | Galp, Repsol, Vodafone, MEO, renda, condomínio, seguradoras |
 | **Refeição** | Supermercado, Padaria, Restaurante | Continente, Pingo Doce, Lidl, restaurantes, cafés |
-| **Lazer** | Compras Online, Subscrição, Desporto e Diversão, Viagem, Roupa | Amazon, Netflix/Spotify, bowling/cinema, voos/hotéis, Zara/Decathlon |
+| **Lazer** | Compras Online, Subscrição, Cinema, Bowling, Escape Room, Museu, Viagem, Roupa | Amazon, Netflix/Spotify, cinemas, bowling, voos/hotéis, Zara/Decathlon |
 | **Saúde** | Farmácia, Consulta, Ginásio | farmácias, clínicas/hospitais, ginásios |
 | **Geral** | Levantamento | levantamentos ATM |
 | **Poupança/Investimento** | Ações/ETF, PPR/Fundo de Pensões, Criptomoeda | Degiro, XTB, eToro, Trading212 · SGF / "Gestora de Fundo" / fundos de pensões / PPR · Binance/Coinbase |
 | **Comissões conta** | Comissão Bancária | comissões, manutenção de conta, imposto de selo |
-| **Transferências Pessoais** | the counterparty's name, extracted from the description | any MBWay transfer, or a plain named bank transfer, with no merchant/purpose signal |
-| **Outros** | — | anything unmatched (nothing is dropped) |
+| **Outros** | — (or the counterparty's name, for an unresolved MBWay/bank transfer) | anything unmatched (nothing is dropped) |
 
-Income categories: `Salário, Salário_alim, Transferências Pessoais, Dinheiro, Outro` (with a
-`Reembolso` sub-category for refunds).
+Income categories: `Salário, Salário_alim, Dinheiro, Outro` (with a `Reembolso` sub-category for
+refunds).
 
-**MBWay is a payment rail, not a category.** A raw bank line for one is just
-`Trf. MB WAY para <name>` — there's no way to know *why* the money moved, unlike a card
-purchase at a named merchant. So MBWay transfers (and plain named bank transfers) go under
-**Transferências Pessoais** rather than a guessed spending category (previously these were all
-dumped into "Lazer", which was wrong more often than not). The two directions are treated
-differently, deliberately:
-- **Expenses** get the counterparty's name as the sub-category (`Method` records the rail —
-  `MBWay` or `Transferência` — separately) — genuinely useful for spending analysis, since it
-  shows how much flowed *to* a specific person over time.
-- **Income** just gets a fixed `Recebido` sub-category, not the sender's name. Unlike spending,
-  who money vaguely arrived from isn't a useful "where did my money go" signal, so there's no
-  value in the extra richness there.
-
-This intentionally does **not** apply to the historical seed data: there, the user had manually
-looked up each MBWay payment's real purpose (a coffee, a physio session, a phone top-up), and
-that manual work is preserved as-is rather than overwritten by a guess.
+**When no purpose keyword matches at all**, the transaction falls back to `Outros`/`Outro` — the
+one fallback bucket, whatever the rail was. If the independently-detected Method is MBWay or
+Transferência (i.e. the raw line is just `"Trf. MB WAY para <name>"`, with truly no purpose
+signal), the counterparty's name is kept as the Sub-category instead of a flat "Diversos" — still
+useful for spending analysis, since it shows who money went to. This intentionally does **not**
+apply to the historical seed data: there, the user had manually looked up each MBWay payment's
+real purpose (a coffee, a physio session, a phone top-up), and that manual work is preserved
+as-is rather than overwritten by a guess.
 
 Anything that doesn't match a keyword rule falls into `Outros`/`Outro` rather than being dropped.
-Extend the rule lists in `finance_tracker/categorize.py` — and mirror the change in
-`dashboard/index.html`, which keeps its own copy for fully offline use — as you spot new merchants
-or entities. Matching is whole-word (a word-boundary regex), so short keywords like `ppr` won't
-false-positive inside unrelated words. Or teach it interactively — see below.
+Extend `PURPOSE_EXPENSE_RULES`/`PURPOSE_INCOME_RULES` in `finance_tracker/categorize.py` — and
+mirror the change in `dashboard/index.html`, which keeps its own copy for fully offline use — as
+you spot new merchants or entities. Matching is whole-word (a word-boundary regex), so short
+keywords like `ppr` won't false-positive inside unrelated words. Or teach it interactively — see
+below.
+
+### Analyzing by payment method
+
+Category answers "what was it for"; Method answers "how did the money move". The dashboard has
+**Expense methods** and **Income methods** charts alongside the category ones — same style,
+same filters — so you can see at a glance how much flowed through MBWay vs. card vs. cash, etc.
+`finance_tracker/overview.compute_method_breakdown()` is the Python-side equivalent (see the
+notebook for an example).
+
+### Excluding the meal-allowance card (Cartão Alimentação)
+
+`Salário_alim` (income) and any expense paid with the `Cartão Alimentação` method are money
+earmarked for food, not general disposable income — mirroring how the original Excel template
+excluded it from its own Monthly_Overview sums. The dashboard's **"Exclude Cartão Alimentação
+(meal card)"** checkbox (next to the year filter) lets you toggle between the full picture and
+the picture *without* that money — applied consistently to the stat tiles, the "Income vs
+Expenses by month" and "Net balance by month" charts, both category/method breakdowns, and the
+transaction table, the same way the year filter already does. `finance_tracker/overview.
+exclude_method()` is the Python-side equivalent.
 
 ## Reviewing uncertain categorizations
 
-The dashboard has a **"Needs Review"** panel listing every expense that didn't get a confident,
-specific category — i.e. anything still sitting in `Outros` (no keyword matched at all) or
-`Transferências Pessoais` (a peer-to-peer transfer, purpose unknown from the description alone).
-Clicking "Review" on a row opens a side panel to set the real Category / Sub-category / Method by
-hand; saving edits that transaction in place, and "Download updated transactions.csv" persists it.
+The dashboard has a **"Needs Review"** panel listing every expense still sitting in `Outros` — no
+purpose keyword matched at all. Clicking "Review" on a row opens a side panel to set the real
+Category / Sub-category / Method by hand; saving edits that transaction in place, and "Download
+updated transactions.csv" persists it.
 
-For `Outros` rows specifically, the panel also offers **"Remember for future transactions like
-this"** with an editable match keyword (prefilled from the description). Checking it saves a rule
-to `data/category_overrides.json` — checked before the built-in rules in `categorize.py`, both by
-the dashboard and by `scripts/ingest_monthly.py` — so correcting an unrecognized merchant once
-clears every other matching row immediately *and* auto-applies to that merchant in future monthly
-files, without editing any code.
+The panel also offers **"Remember for future transactions like this"** with an editable match
+keyword (prefilled from the description) — but only when the row's **Method is not MBWay or
+Transferência**. Checking it saves a rule to `data/category_overrides.json` — checked before the
+built-in rules in `categorize.py`, both by the dashboard and by `scripts/ingest_monthly.py` — so
+correcting an unrecognized merchant once clears every other matching row immediately *and*
+auto-applies to that merchant in future monthly files, without editing any code.
 
-**This "remember" option deliberately never appears for `Transferências Pessoais` rows.** A
+**This "remember" option deliberately never appears when Method is MBWay or Transferência.** A
 merchant's category is a stable fact (the bowling alley is always "Lazer"), but a peer-to-peer
 transfer's purpose isn't — the same person might send you rent one month and a birthday gift the
 next, so learning "this name → this category" would silently mis-categorize unrelated future
@@ -219,7 +248,11 @@ so you can rebuild from scratch the same way. The "Needs Review" panel (see belo
 anything the keyword rules couldn't confidently categorize; "Download updated
 category_overrides.json" saves any merchant rules you taught it that way, so
 they're picked up by future CLI ingestion too — unlike `transactions.csv`, this file has no
-personal financial data in it (just merchant keywords), so it's fine to commit as-is.
+personal financial data in it (just merchant keywords), so it's fine to commit as-is. Category
+and Method breakdowns sit side by side for both Income and Expenses ("Analyzing by payment
+method" above), and the "Exclude Cartão Alimentação (meal card)" checkbox next to the year filter
+toggles the meal-allowance card in or out of every chart and the stat tiles at once ("Excluding
+the meal-allowance card" above).
 
 **Adding a transaction manually** — for anything with no bank export at all (cash you received or
 spent, a gift, etc.), use the "Add a transaction manually" form: pick Income or Expense, fill in

@@ -78,6 +78,9 @@
   }
   .panel-row label.filebtn input { display: none; }
   .panel-row label.filebtn.disabled { opacity: 0.45; pointer-events: none; }
+  .checkbox-inline {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-primary); cursor: pointer;
+  }
   #status-line { font-size: 13px; color: var(--text-secondary); margin-top: 10px; }
   #status-line.warn { color: #ec835a; }
   button.primary {
@@ -194,7 +197,13 @@
       <button class="primary" id="btn-download" disabled>⬇ Download updated transactions.csv</button>
       <button class="primary" id="btn-download-enc" disabled>🔒 Download encrypted (.enc)</button>
       <button class="primary" id="btn-download-overrides" disabled>⬇ Download updated category_overrides.json</button>
+    </div>
+    <div class="panel-row" style="margin-top:10px;">
       <select id="year-filter"></select>
+      <label class="checkbox-inline">
+        <input type="checkbox" id="exclude-meal-card">
+        Exclude Cartão Alimentação (meal card)
+      </label>
     </div>
     <div id="status-line">Attempting to load ../data/transactions.csv automatically…</div>
   </div>
@@ -278,6 +287,14 @@
       <h2>Income categories</h2>
       <div class="chart-box"><canvas id="chart-income-cat"></canvas></div>
     </div>
+    <div class="card">
+      <h2>Expense methods</h2>
+      <div class="chart-box"><canvas id="chart-expense-method"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Income methods</h2>
+      <div class="chart-box"><canvas id="chart-income-method"></canvas></div>
+    </div>
   </div>
 
   <div class="card">
@@ -357,8 +374,14 @@ const COLUMNS = ["transaction_id","Date","Type","Category","Sub-category","Metho
 const TYPE_INCOME = "Income";
 const TYPE_EXPENSE = "Expense";
 const SAVINGS_CATEGORY = "Poupança/Investimento";
-const EXPENSE_CATEGORIES = ["Necessário","Refeição","Lazer","Saúde","Geral","Poupança/Investimento","Comissões conta","Transferências Pessoais","Outros"];
-const INCOME_CATEGORIES = ["Salário","Salário_alim","Transferências Pessoais","Dinheiro","Outro"];
+const EXPENSE_CATEGORIES = ["Necessário","Refeição","Lazer","Saúde","Geral","Poupança/Investimento","Comissões conta","Outros"];
+const INCOME_CATEGORIES = ["Salário","Salário_alim","Dinheiro","Outro"];
+// Payment methods (the rail money moved over) — deliberately separate from
+// Category. MBWay and Transferência are never a Category; they only ever
+// appear here, in Method. See the categorization block below.
+const UNSPECIFIED_METHOD = "Não especificado"; // historical rows with no recorded payment method
+const METHODS = ["Cartão","MBWay","Transferência","Débito Direto","Cartão Alimentação","Dinheiro","Levantamento",UNSPECIFIED_METHOD];
+const MEAL_CARD_METHOD = "Cartão Alimentação";
 const SERIES = ["--series-1","--series-2","--series-3","--series-4","--series-5","--series-6","--series-7","--series-8"];
 
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -368,40 +391,55 @@ function colorFor(list, category) {
 }
 
 // ---------------------------------------------------------------------
-// Categorization rules (kept in sync with finance_tracker/categorize.py)
+// Categorization (kept in sync with finance_tracker/categorize.py)
 //
-// MBWay (and a plain bank "Transferência") is a payment RAIL, not a spending
-// category — the raw description is just "Trf. MB WAY para <name>", with no
-// merchant/purpose signal. So these route to "Transferências Pessoais" with
-// the counterparty's name as sub-category, while Method still records the
-// rail (MBWay / Transferência). This deliberately does NOT apply to the
-// historical seed data, where the user manually looked up each payment's
-// real purpose — that's preserved as-is.
+// Two independent steps, deliberately kept separate:
+// 1. Category/Sub-category comes only from purpose/merchant keywords
+//    (PURPOSE_INCOME_RULES / PURPOSE_EXPENSE_RULES below) — mbway and
+//    "transferência" are NOT purpose signals and never appear in this table.
+// 2. Method (the payment rail) is detected independently and can override
+//    whatever a purpose rule suggested: "mbway" anywhere in the description
+//    always means Method=MBWay, regardless of what it's for.
+//
+// This matters because a rail keyword and a purpose keyword can both appear
+// in the same description — e.g. "Mbway - Cinemas" — and both must be
+// honored: Category=Lazer/Cinema *and* Method=MBWay. Treating MBWay as a
+// category (an earlier version of this file did) meant the rail always won
+// and silently swallowed the purpose signal.
+//
+// When no purpose keyword matches, the transaction falls back to Category
+// "Outros"/"Outro". If the detected Method is MBWay or Transferência (i.e.
+// this looks like "Trf. MB WAY para <name>" with truly no purpose signal),
+// the counterparty's name is kept as the Sub-category instead of a flat
+// "Diversos" — still useful for spending analysis. This deliberately does
+// NOT apply to the historical seed data, where the user manually looked up
+// each payment's real purpose — that's preserved as-is.
 // ---------------------------------------------------------------------
 const MBWAY_NAME_RE = /mb\s*way\s+(?:para|de)\s+(.+)$/i;
 const TRANSFER_NAME_RE = /transfer[êe]ncia\s+(?:para|de)\s+(.+)$/i;
 
 function cleanName(raw) {
-  const name = raw.trim().replace(/^[.\s]+|[.\s]+$/g, "");
-  return name || "Diversos";
+  return raw.trim().replace(/^[.\s]+|[.\s]+$/g, "") || null;
 }
-function mbwayCounterparty(description) {
-  const m = MBWAY_NAME_RE.exec(description);
-  return m ? cleanName(m[1]) : "Diversos";
-}
-function transferCounterparty(description) {
-  const m = TRANSFER_NAME_RE.exec(description);
-  return m ? cleanName(m[1]) : "Diversos";
+function extractCounterparty(description) {
+  for (const re of [MBWAY_NAME_RE, TRANSFER_NAME_RE]) {
+    const m = re.exec(description);
+    if (m) {
+      const name = cleanName(m[1]);
+      if (name) return name;
+    }
+  }
+  return null;
 }
 
-const INCOME_RULES = [
-  [["mbway", "mb way"], "Transferências Pessoais", "Recebido", "MBWay"],
+// Each rule: [keywords, category, sub_category, suggestedMethod] — the
+// suggested method is only a default, see overlayMethod().
+const PURPOSE_INCOME_RULES = [
   [["ordenado", "salário", "salario", "vencimento"], "Salário", "Salário", "Transferência"],
   [["subsídio de alimentação", "subsidio de alimentacao", "cartão alimentação", "cartao alimentacao"], "Salário_alim", "Salário_alim", "Cartão Alimentação"],
-  [["reembolso", "estorno", "devolução", "devolucao"], "Transferências Pessoais", "Reembolso", "Transferência"],
-  [["transferência", "transferencia"], "Transferências Pessoais", "Recebido", "Transferência"],
+  [["reembolso", "estorno", "devolução", "devolucao"], "Outro", "Reembolso", "Transferência"],
 ];
-const EXPENSE_RULES = [
+const PURPOSE_EXPENSE_RULES = [
   [["levantamento", "atm"], "Geral", "Levantamento", "Levantamento"],
 
   [["degiro", "trading212", "trading 212", "xtb", "etoro", "revolut trading", "interactive brokers"],
@@ -412,13 +450,25 @@ const EXPENSE_RULES = [
   [["binance", "coinbase", "kraken", "criptomoeda", "cripto", "crypto"],
     "Poupança/Investimento", "Criptomoeda", "Transferência"],
 
-  [["mbway", "mb way"], "Transferências Pessoais", mbwayCounterparty, "MBWay"],
-
   [["supermercado", "continente", "pingo doce", "lidl", "aldi", "mercadona", "minipreço", "minipreco", "auchan"],
     "Refeição", "Supermercado", "Cartão"],
   [["padaria", "pastelaria"], "Refeição", "Padaria", "Cartão"],
   [["restaurante", "café", "cafe", "pizzaria", "pizz", "churrasco", "gaucho", "marisqueira", "cervejaria"],
     "Refeição", "Restaurante", "Cartão"],
+
+  // Entertainment venues checked before the telecom block below: "NOS" is
+  // both a telecom brand and (via "NOS Cinemas") a real cinema chain name,
+  // so the more specific "cinema"/"bowling"/... match must win first.
+  [["amazon", "ebay", "aliexpress", "eneba", "shein", "wook"], "Lazer", "Compras Online", "Cartão"],
+  [["netflix", "spotify", "disney", "hbo", "twitch", "youtube premium", "amazon prime"],
+    "Lazer", "Subscrição", "Cartão"],
+  [["cinema", "cinemas"], "Lazer", "Cinema", "Cartão"],
+  [["bowling"], "Lazer", "Bowling", "Cartão"],
+  [["escape room"], "Lazer", "Escape Room", "Cartão"],
+  [["museu", "museus"], "Lazer", "Museu", "Cartão"],
+  [["flights", "booking", "ryanair", "tap", "easyjet", "hotel", "airbnb", "viagem"],
+    "Lazer", "Viagem", "Cartão"],
+  [["zara", "h&m", "primark", "decathlon", "sport zone"], "Lazer", "Roupa", "Cartão"],
 
   [["combustível", "combustivel", "gasolina", "gasóleo", "gasoleo", "galp", "repsol", "cepsa", "prio", "bp"],
     "Necessário", "Combustível", "Cartão"],
@@ -434,54 +484,67 @@ const EXPENSE_RULES = [
     "Saúde", "Consulta", "Cartão"],
   [["ginásio", "ginasio", "fitness", "holmes place", "solinca"], "Saúde", "Ginásio", "Débito Direto"],
 
-  [["amazon", "ebay", "aliexpress", "eneba", "shein", "wook"], "Lazer", "Compras Online", "Cartão"],
-  [["netflix", "spotify", "disney", "hbo", "twitch", "youtube premium", "amazon prime"],
-    "Lazer", "Subscrição", "Cartão"],
-  [["bowling", "escape room", "cinema", "museu"], "Lazer", "Desporto e Diversão", "Cartão"],
-  [["flights", "booking", "ryanair", "tap", "easyjet", "hotel", "airbnb", "viagem"],
-    "Lazer", "Viagem", "Cartão"],
-  [["zara", "h&m", "primark", "decathlon", "sport zone"], "Lazer", "Roupa", "Cartão"],
-
   [["comissão", "comissao", "manutenção de conta", "manutencao de conta", "imposto de selo", "imposto selo"],
     "Comissões conta", "Comissão Bancária", "Débito Direto"],
-
-  // Generic named bank transfer with no merchant/purpose signal (checked
-  // last, so any more specific rule above still wins).
-  [["transferência", "transferencia"], "Transferências Pessoais", transferCounterparty, "Transferência"],
 ];
+
 function wordMatch(text, keyword) {
   const escaped = keyword.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`\\b${escaped}\\b`).test(text);
 }
 
+function matchPurpose(descLower, rules) {
+  for (const [keywords, category, subCategory, suggestedMethod] of rules) {
+    if (keywords.some(k => wordMatch(descLower, k))) return [category, subCategory, suggestedMethod];
+  }
+  return null;
+}
+
+function overlayMethod(descLower, suggestedMethod) {
+  if (wordMatch(descLower, "mbway") || wordMatch(descLower, "mb way")) return "MBWay";
+  if (wordMatch(descLower, "transferência") || wordMatch(descLower, "transferencia")) return "Transferência";
+  return suggestedMethod;
+}
+
 // ---------------------------------------------------------------------
 // User-taught overrides (see finance_tracker/overrides.py) — checked before
-// the built-in rules above, so a correction made in the "Needs Review" panel
-// always wins. Deliberately never used for Transferências Pessoais (MBWay /
-// named transfers): the same person can send money for a different reason
-// every month, so a name -> category rule would silently mis-categorize
-// future, unrelated transactions from them. Only offered for "Outros"/"Outro"
-// commercial fallbacks — see the review panel below.
+// the purpose rules above, fully explicit (not subject to the method-overlay
+// step: a saved override's category/sub/method are exactly what the user
+// chose). Only ever offered for "Outros"/"Outro" rows whose Method is NOT
+// MBWay/Transferência — see the review panel below for why.
 // ---------------------------------------------------------------------
 let overrides = [];
 
-function overridesToRules(txnType) {
-  return overrides
-    .filter(o => o.type === txnType || o.type === "both")
-    .map(o => [o.keywords, o.category, o.sub_category, o.method]);
+function matchOverride(descLower, txnType) {
+  for (const o of overrides) {
+    if (o.type !== txnType && o.type !== "both") continue;
+    if (o.keywords.some(k => wordMatch(descLower, k))) return [o.category, o.sub_category, o.method];
+  }
+  return null;
 }
 
 function categorize(description, amount) {
-  const d = String(description).toLowerCase();
-  const txnType = amount > 0 ? "income" : "expense";
-  const rules = [...overridesToRules(txnType), ...(amount > 0 ? INCOME_RULES : EXPENSE_RULES)];
-  for (const [keywords, cat, sub, method] of rules) {
-    if (keywords.some(k => wordMatch(d, k))) {
-      const subCategory = typeof sub === "function" ? sub(description) : sub;
-      return [cat, subCategory, method];
-    }
+  const descLower = String(description).toLowerCase();
+  const isIncome = amount > 0;
+  const txnType = isIncome ? "income" : "expense";
+
+  const overrideHit = matchOverride(descLower, txnType);
+  if (overrideHit) return overrideHit;
+
+  const purposeHit = matchPurpose(descLower, isIncome ? PURPOSE_INCOME_RULES : PURPOSE_EXPENSE_RULES);
+  if (purposeHit) {
+    const [category, subCategory, suggestedMethod] = purposeHit;
+    return [category, subCategory, overlayMethod(descLower, suggestedMethod)];
   }
-  return amount > 0 ? ["Outro", "Outro", "Transferência"] : ["Outros", "Outros", "Cartão"];
+
+  const fallbackCategory = isIncome ? "Outro" : "Outros";
+  const method = overlayMethod(descLower, isIncome ? "Transferência" : "Cartão");
+  let subCategory = "Diversos";
+  if (method === "MBWay" || method === "Transferência") {
+    const name = extractCounterparty(description);
+    if (name) subCategory = name;
+  }
+  return [fallbackCategory, subCategory, method];
 }
 
 // ---------------------------------------------------------------------
@@ -653,7 +716,7 @@ function overridesToCsvSafeJson() {
 // Re-run categorization on rows still sitting in the generic fallback
 // (Outros/Outro) using the current overrides — so a rule taught in the
 // Needs Review panel immediately clears every other matching row, not just
-// the one you just fixed. Never touches Transferências Pessoais rows.
+// the one you just fixed.
 function applyOverridesToStore() {
   if (!overrides.length) return 0;
   let changed = 0;
@@ -871,6 +934,7 @@ document.getElementById("btn-download").addEventListener("click", () => {
 });
 
 document.getElementById("year-filter").addEventListener("change", renderAll);
+document.getElementById("exclude-meal-card").addEventListener("change", renderAll);
 document.getElementById("search-box").addEventListener("input", renderTable);
 document.getElementById("type-filter").addEventListener("change", renderTable);
 document.getElementById("cat-filter").addEventListener("change", renderTable);
@@ -880,10 +944,13 @@ document.getElementById("cat-filter").addEventListener("change", renderTable);
 // ---------------------------------------------------------------------
 let charts = {};
 
-function filteredByYear() {
+function filteredRows() {
   const y = document.getElementById("year-filter").value;
-  if (!y || y === "all") return store;
-  return store.filter(r => String(r.Year) === y);
+  const excludeMealCard = document.getElementById("exclude-meal-card").checked;
+  let rows = store;
+  if (y && y !== "all") rows = rows.filter(r => String(r.Year) === y);
+  if (excludeMealCard) rows = rows.filter(r => r.Method !== MEAL_CARD_METHOD);
+  return rows;
 }
 
 function monthKey(r) { return `${r.Year}-${String(r.Month).padStart(2,"0")}`; }
@@ -910,6 +977,20 @@ function computeCategoryBreakdown(rows, type) {
     byCat.set(r.Category, (byCat.get(r.Category) || 0) + amt);
   }
   return [...byCat.entries()].sort((a,b) => b[1]-a[1]);
+}
+
+// Complements computeCategoryBreakdown: Category answers "what was it for",
+// Method answers "how did the money move" — e.g. how much flowed through
+// MBWay vs. card vs. the meal-allowance card.
+function computeMethodBreakdown(rows, type) {
+  const byMethod = new Map();
+  for (const r of rows) {
+    if (r.Type !== type) continue;
+    const amt = Number(r["Amount (€)"]) || 0;
+    const method = r.Method || UNSPECIFIED_METHOD;
+    byMethod.set(method, (byMethod.get(method) || 0) + amt);
+  }
+  return [...byMethod.entries()].sort((a,b) => b[1]-a[1]);
 }
 
 function fmtEur(n) {
@@ -1017,7 +1098,7 @@ function renderTable() {
   const search = document.getElementById("search-box").value.toLowerCase();
   const typeF = document.getElementById("type-filter").value;
   const catF = document.getElementById("cat-filter").value;
-  const rows = filteredByYear()
+  const rows = filteredRows()
     .filter(r => !typeF || r.Type === typeF)
     .filter(r => !catF || r.Category === catF)
     .filter(r => !search || `${r.Notes} ${r.Category} ${r["Sub-category"]}`.toLowerCase().includes(search))
@@ -1037,16 +1118,15 @@ function renderTable() {
 }
 
 // ---------------------------------------------------------------------
-// Needs Review — expenses whose category came from a generic fallback
-// ("Outros") or a peer-to-peer transfer ("Transferências Pessoais") rather
-// than a specific merchant/purpose match. Fixing one here edits that row in
-// place; "remember" (Outros only) also teaches an override so every other
-// matching row clears immediately and future monthly files benefit too.
+// Needs Review — expenses whose category came from the generic "Outros"
+// fallback (no purpose keyword matched at all). Fixing one here edits that
+// row in place; "remember" also teaches an override so every other matching
+// row clears immediately and future monthly files benefit too — except when
+// Method is MBWay/Transferência, since that likely means a peer-to-peer
+// transfer whose purpose can vary month to month for the same counterparty.
 // ---------------------------------------------------------------------
-const REVIEW_METHODS = ["Cartão", "MBWay", "Dinheiro", "Débito Direto", "Transferência", "Levantamento"];
-
 function reviewQueue() {
-  return store.filter(r => r.Type === TYPE_EXPENSE && (r.Category === "Outros" || r.Category === "Transferências Pessoais"));
+  return store.filter(r => r.Type === TYPE_EXPENSE && r.Category === "Outros");
 }
 
 function renderReviewQueue() {
@@ -1086,12 +1166,13 @@ function openReviewPanel(transactionId) {
   document.getElementById("rp-subcategory").value = row["Sub-category"] || "";
 
   const methodSel = document.getElementById("rp-method");
-  methodSel.innerHTML = REVIEW_METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
+  methodSel.innerHTML = METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
   methodSel.value = row.Method || "Cartão";
 
-  // Only a true "we have no idea" fallback (Outros) is safe to learn from —
-  // a peer-to-peer transfer's purpose isn't a stable property of the sender.
-  const canRemember = row.Category === "Outros";
+  // Safe to learn from unless Method is MBWay/Transferência — those likely
+  // mean a peer-to-peer transfer, whose purpose isn't a stable property of
+  // the counterparty (unlike a merchant, which always means the same thing).
+  const canRemember = row.Method !== "MBWay" && row.Method !== "Transferência";
   document.getElementById("rp-remember-field").style.display = canRemember ? "block" : "none";
   document.getElementById("rp-remember").checked = false;
   document.getElementById("rp-keyword").value = canRemember ? (row.Notes || "").toLowerCase() : "";
@@ -1161,12 +1242,14 @@ function refreshFilters() {
 
 function renderAll() {
   refreshFilters();
-  const rows = filteredByYear();
+  const rows = filteredRows();
   renderTiles(rows);
   renderTrendChart(computeMonthlyOverview(rows));
   renderNetChart(computeMonthlyOverview(rows));
   renderCategoryChart("chart-expense-cat", "expCat", computeCategoryBreakdown(rows, TYPE_EXPENSE), EXPENSE_CATEGORIES);
   renderCategoryChart("chart-income-cat", "incCat", computeCategoryBreakdown(rows, TYPE_INCOME), INCOME_CATEGORIES);
+  renderCategoryChart("chart-expense-method", "expMethod", computeMethodBreakdown(rows, TYPE_EXPENSE), METHODS);
+  renderCategoryChart("chart-income-method", "incMethod", computeMethodBreakdown(rows, TYPE_INCOME), METHODS);
   renderTable();
   renderReviewQueue();
 }
@@ -1187,7 +1270,7 @@ function initManualForm() {
   document.getElementById("mf-date").value = new Date().toISOString().slice(0, 10);
   populateManualCategoryOptions();
   const methodSel = document.getElementById("mf-method");
-  methodSel.innerHTML = REVIEW_METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
+  methodSel.innerHTML = METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
   methodSel.value = "Dinheiro";
 }
 

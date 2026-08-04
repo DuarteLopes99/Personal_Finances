@@ -1,37 +1,49 @@
 """Keyword-based categorization of raw bank transaction descriptions.
 
+Categorization happens in two independent steps, deliberately kept separate:
+
+1. **Category / Sub-category** comes only from purpose/merchant keywords
+   (supermarket, restaurant, cinema, Vodafone, Degiro, ...) — see PURPOSE_RULES
+   below. MBWay and "transferência" are NOT purpose signals and never appear
+   in this table, because they say nothing about *why* money moved.
+2. **Method** (the payment rail) is detected independently, from its own
+   keywords, and can override whichever method a purpose rule suggested: a
+   description containing "mbway" is always Method=MBWay, regardless of
+   what it's for.
+
+This matters because a rail keyword and a purpose keyword can both appear in
+the same description — e.g. "Mbway - Cinemas" — and both must be honored:
+Category=Lazer/Cinema (from the purpose keyword) *and* Method=MBWay (from the
+rail keyword). Treating MBWay/"transferência" as a category (as an earlier
+version of this module did) meant the rail always won and swallowed the
+purpose signal, silently miscategorizing anything paid via MBWay that also
+had a recognizable purpose.
+
+When NO purpose keyword matches at all, the transaction falls back to
+Category "Outros"/"Outro". If the independently-detected Method is MBWay or
+Transferência (i.e. this looks like a peer-to-peer transfer with truly no
+purpose signal — just "Trf. MB WAY para <name>"), the counterparty's name is
+kept as the Sub-category instead of a flat "Diversos", since it's still
+useful for spending analysis to see who money went to/from. Either way this
+still lands in the dashboard's "Needs Review" queue.
+
 Rules are checked in order, first match wins. Matching is whole-word (via a
 word-boundary regex) so short keywords like "ppr" or "etf" don't false-positive
 on unrelated words that merely contain those letters (e.g. "Petfiestas").
 
-Extend EXPENSE_RULES / INCOME_RULES to teach the categorizer new merchants or
-entities — no other code needs to change. Mirror any change in
-dashboard/index.html's copy of these tables (used for offline, client-side
+Extend PURPOSE_INCOME_RULES / PURPOSE_EXPENSE_RULES to teach the categorizer
+new merchants or entities — no other code needs to change. Mirror any change
+in dashboard/index.html's copy of these tables (used for offline, client-side
 categorization).
-
-MBWay (and a plain bank "Transferência") is a payment *rail*, not a spending
-category — a raw bank description for one of these is just "Trf. MB WAY para
-<name>", with no merchant or purpose signal at all, unlike a card purchase. So
-expenses over these rails route to "Transferências Pessoais" with the
-counterparty's name as the sub-category (via _mbway_counterparty /
-_transfer_counterparty below) — useful for spending analysis, since it shows
-who money went to. Income over the same rails uses a fixed "Recebido"
-sub-category instead: unlike spending, knowing the *sender's* name isn't
-particularly useful for "where did my money go" analysis, so there's no need
-for the same richness there. Either way, Method still records which rail it
-went over (MBWay / Transferência), independent of Category. This is
-deliberately different from Personal_Finance_Tracker_With_Formulas.xlsx's
-historical data, where the user manually looked up what each MBWay payment was
-for (e.g. "Cerveja", "Fisioterapia") — that manual categorization is preserved
-as-is by scripts/seed_from_template.py and is more accurate than anything this
-module could infer from the bank description alone.
 
 `overrides` (see overrides.py) let a user teach new merchant/entity rules
 through the dashboard's "Needs Review" panel without editing this file —
-checked before the built-in rules below. They only apply to commercial/
-merchant fallbacks ("Outros"/"Outro") that were never derived from a
-Transferências Pessoais match, precisely because a peer-to-peer transfer's
-purpose can vary month to month — see overrides.py for the full rationale.
+checked before the built-in purpose rules below, and skip the method-overlay
+step entirely (a saved override is fully explicit: category, sub-category,
+and method are all exactly what the user chose). They're only ever offered
+for "Outros"/"Outro" rows whose Method is NOT MBWay/Transferência, precisely
+because a peer-to-peer transfer's purpose can vary month to month — see
+overrides.py for the full rationale.
 """
 
 import re
@@ -42,34 +54,30 @@ _TRANSFER_NAME_RE = re.compile(r"transfer[êe]ncia\s+(?:para|de)\s+(.+)$", re.IG
 
 def _clean_name(raw: str) -> str:
     name = raw.strip(" .")
-    return name if name else "Diversos"
+    return name if name else None
 
 
-def _mbway_counterparty(description: str) -> str:
-    m = _MBWAY_NAME_RE.search(description)
-    return _clean_name(m.group(1)) if m else "Diversos"
+def _extract_counterparty(description: str):
+    for pattern in (_MBWAY_NAME_RE, _TRANSFER_NAME_RE):
+        m = pattern.search(description)
+        if m:
+            name = _clean_name(m.group(1))
+            if name:
+                return name
+    return None
 
 
-def _transfer_counterparty(description: str) -> str:
-    m = _TRANSFER_NAME_RE.search(description)
-    return _clean_name(m.group(1)) if m else "Diversos"
-
-
-# Each rule: (keywords, category, sub_category, method)
-# sub_category may be a fixed string, or a callable(description) -> str for
-# rules whose sub-category depends on the specific transaction (e.g. the
-# transfer counterparty's name).
-INCOME_RULES = [
-    (["mbway", "mb way"], "Transferências Pessoais", "Recebido", "MBWay"),
+# Each rule: (keywords, category, sub_category, suggested_method). The
+# suggested method is a default only — see _overlay_method — never a promise
+# that the transaction actually went over that rail.
+PURPOSE_INCOME_RULES = [
     (["ordenado", "salário", "salario", "vencimento"], "Salário", "Salário", "Transferência"),
     (["subsídio de alimentação", "subsidio de alimentacao", "cartão alimentação", "cartao alimentacao"],
      "Salário_alim", "Salário_alim", "Cartão Alimentação"),
-    (["reembolso", "estorno", "devolução", "devolucao"], "Transferências Pessoais", "Reembolso", "Transferência"),
-    (["transferência", "transferencia"], "Transferências Pessoais", "Recebido", "Transferência"),
+    (["reembolso", "estorno", "devolução", "devolucao"], "Outro", "Reembolso", "Transferência"),
 ]
 
-# Each rule: (keywords, category, sub_category, method)
-EXPENSE_RULES = [
+PURPOSE_EXPENSE_RULES = [
     (["levantamento", "atm"], "Geral", "Levantamento", "Levantamento"),
 
     # Savings & investments — brokerage / ETFs / stocks
@@ -83,13 +91,25 @@ EXPENSE_RULES = [
     (["binance", "coinbase", "kraken", "criptomoeda", "cripto", "crypto"],
      "Poupança/Investimento", "Criptomoeda", "Transferência"),
 
-    (["mbway", "mb way"], "Transferências Pessoais", _mbway_counterparty, "MBWay"),
-
     (["supermercado", "continente", "pingo doce", "lidl", "aldi", "mercadona", "minipreço", "minipreco", "auchan"],
      "Refeição", "Supermercado", "Cartão"),
     (["padaria", "pastelaria"], "Refeição", "Padaria", "Cartão"),
     (["restaurante", "café", "cafe", "pizzaria", "pizz", "churrasco", "gaucho", "marisqueira", "cervejaria"],
      "Refeição", "Restaurante", "Cartão"),
+
+    # Entertainment venues checked before the telecom block below: "NOS" is
+    # both a telecom brand and (via "NOS Cinemas") a real cinema chain name,
+    # so the more specific "cinema"/"bowling"/... match must win first.
+    (["amazon", "ebay", "aliexpress", "eneba", "shein", "wook"], "Lazer", "Compras Online", "Cartão"),
+    (["netflix", "spotify", "disney", "hbo", "twitch", "youtube premium", "amazon prime"],
+     "Lazer", "Subscrição", "Cartão"),
+    (["cinema", "cinemas"], "Lazer", "Cinema", "Cartão"),
+    (["bowling"], "Lazer", "Bowling", "Cartão"),
+    (["escape room"], "Lazer", "Escape Room", "Cartão"),
+    (["museu", "museus"], "Lazer", "Museu", "Cartão"),
+    (["flights", "booking", "ryanair", "tap", "easyjet", "hotel", "airbnb", "viagem"],
+     "Lazer", "Viagem", "Cartão"),
+    (["zara", "h&m", "primark", "decathlon", "sport zone"], "Lazer", "Roupa", "Cartão"),
 
     (["combustível", "combustivel", "gasolina", "gasóleo", "gasoleo", "galp", "repsol", "cepsa", "prio", "bp"],
      "Necessário", "Combustível", "Cartão"),
@@ -105,20 +125,8 @@ EXPENSE_RULES = [
      "Saúde", "Consulta", "Cartão"),
     (["ginásio", "ginasio", "fitness", "holmes place", "solinca"], "Saúde", "Ginásio", "Débito Direto"),
 
-    (["amazon", "ebay", "aliexpress", "eneba", "shein", "wook"], "Lazer", "Compras Online", "Cartão"),
-    (["netflix", "spotify", "disney", "hbo", "twitch", "youtube premium", "amazon prime"],
-     "Lazer", "Subscrição", "Cartão"),
-    (["bowling", "escape room", "cinema", "museu"], "Lazer", "Desporto e Diversão", "Cartão"),
-    (["flights", "booking", "ryanair", "tap", "easyjet", "hotel", "airbnb", "viagem"],
-     "Lazer", "Viagem", "Cartão"),
-    (["zara", "h&m", "primark", "decathlon", "sport zone"], "Lazer", "Roupa", "Cartão"),
-
     (["comissão", "comissao", "manutenção de conta", "manutencao de conta", "imposto de selo", "imposto selo"],
      "Comissões conta", "Comissão Bancária", "Débito Direto"),
-
-    # Generic named bank transfer with no merchant/purpose signal (checked
-    # last, so any more specific rule above still wins).
-    (["transferência", "transferencia"], "Transferências Pessoais", _transfer_counterparty, "Transferência"),
 ]
 
 
@@ -126,40 +134,63 @@ def _matches(desc_lower: str, keyword: str) -> bool:
     return re.search(rf"\b{re.escape(keyword.strip())}\b", desc_lower) is not None
 
 
-def _match(desc_lower: str, description: str, rules):
-    for keywords, category, sub_category, method in rules:
+def _match_purpose(desc_lower: str, rules):
+    for keywords, category, sub_category, suggested_method in rules:
         if any(_matches(desc_lower, kw) for kw in keywords):
-            sub = sub_category(description) if callable(sub_category) else sub_category
-            return category, sub, method
+            return category, sub_category, suggested_method
     return None
 
 
-def _overrides_to_rules(overrides, txn_type: str):
-    return [
-        (o["keywords"], o["category"], o["sub_category"], o.get("method", ""))
-        for o in (overrides or [])
-        if o.get("type") in (txn_type, "both")
-    ]
+def _overlay_method(desc_lower: str, suggested_method: str) -> str:
+    """The payment rail is detected independently of purpose, and a rail
+    keyword always wins over whatever a purpose rule suggested."""
+    if _matches(desc_lower, "mbway") or _matches(desc_lower, "mb way"):
+        return "MBWay"
+    if _matches(desc_lower, "transferência") or _matches(desc_lower, "transferencia"):
+        return "Transferência"
+    return suggested_method
+
+
+def _match_override(desc_lower: str, overrides, txn_type: str):
+    for o in (overrides or []):
+        if o.get("type") not in (txn_type, "both"):
+            continue
+        if any(_matches(desc_lower, kw) for kw in o["keywords"]):
+            return o["category"], o["sub_category"], o.get("method", "")
+    return None
 
 
 def categorize_transaction(description: str, amount: float, overrides=None) -> tuple:
     """Return (category, sub_category, method) for a raw transaction.
 
     amount > 0 => income rules; amount < 0 => expense rules. `overrides` (see
-    overrides.py), if given, are checked before the built-in rules, so a
-    user-taught merchant rule always wins.
+    overrides.py), if given, are checked before the built-in purpose rules,
+    fully explicit and not subject to the method-overlay step — a saved
+    override always wins outright.
 
-    Falls back to a generic bucket ("Outro"/"Outros") when nothing matches,
-    so every transaction is still captured for manual re-categorization later.
+    Falls back to a generic bucket ("Outro"/"Outros") when no purpose keyword
+    matches, so every transaction is still captured for manual
+    re-categorization later — nothing is silently dropped.
     """
     description = str(description)
     desc_lower = description.lower()
+    is_income = amount > 0
 
-    if amount > 0:
-        rules = _overrides_to_rules(overrides, "income") + INCOME_RULES
-        hit = _match(desc_lower, description, rules)
-        return hit if hit else ("Outro", "Outro", "Transferência")
+    override_hit = _match_override(desc_lower, overrides, "income" if is_income else "expense")
+    if override_hit:
+        return override_hit
 
-    rules = _overrides_to_rules(overrides, "expense") + EXPENSE_RULES
-    hit = _match(desc_lower, description, rules)
-    return hit if hit else ("Outros", "Outros", "Cartão")
+    purpose_rules = PURPOSE_INCOME_RULES if is_income else PURPOSE_EXPENSE_RULES
+    hit = _match_purpose(desc_lower, purpose_rules)
+    if hit:
+        category, sub_category, suggested_method = hit
+        return category, sub_category, _overlay_method(desc_lower, suggested_method)
+
+    fallback_category = "Outro" if is_income else "Outros"
+    method = _overlay_method(desc_lower, "Transferência" if is_income else "Cartão")
+    sub_category = "Diversos"
+    if method in ("MBWay", "Transferência"):
+        name = _extract_counterparty(description)
+        if name:
+            sub_category = name
+    return fallback_category, sub_category, method

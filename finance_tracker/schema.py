@@ -26,18 +26,31 @@ TYPE_EXPENSE = "Expense"
 
 EXPENSE_CATEGORIES = [
     "Necessário", "Refeição", "Lazer", "Saúde", "Geral", "Poupança/Investimento",
-    "Comissões conta", "Transferências Pessoais", "Outros",
+    "Comissões conta", "Outros",
 ]
 
-# "Transferências Pessoais" covers MBWay and plain named bank transfers —
-# a payment rail (recorded in Method), not a spending category, so it
-# doesn't imply a purpose the way "Refeição" or "Lazer" do. See
-# categorize.py's module docstring for why these can't be inferred further.
 INCOME_CATEGORIES = [
-    "Salário", "Salário_alim", "Transferências Pessoais", "Dinheiro", "Outro",
+    "Salário", "Salário_alim", "Dinheiro", "Outro",
+]
+
+# Method used when a historical row simply never had one recorded (e.g. a
+# blank "Payment Method" cell in the source Excel tracker) — never blank/None
+# in the store itself, so charts always get a real, labeled bucket.
+UNSPECIFIED_METHOD = "Não especificado"
+
+# Payment methods (the rail money moved over) — deliberately separate from
+# Category. MBWay and Transferência are never a Category (see categorize.py's
+# module docstring); they only ever appear here, in Method.
+METHODS = [
+    "Cartão", "MBWay", "Transferência", "Débito Direto",
+    "Cartão Alimentação", "Dinheiro", "Levantamento", UNSPECIFIED_METHOD,
 ]
 
 # Category treated as savings/investment for Monthly_Overview purposes,
 # excluded from the "Net" expense total the same way the template excludes
 # "Cartão Alimentação" from certain sums.
 SAVINGS_CATEGORY = "Poupança/Investimento"
+
+# Method used for the meal-allowance card — excludable from analysis via the
+# dashboard's "Exclude Cartão Alimentação" toggle / overview.exclude_method().
+MEAL_CARD_METHOD = "Cartão Alimentação"

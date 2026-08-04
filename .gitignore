@@ -1,14 +1,17 @@
 # Personal financial data — never commit plaintext. Only the encrypted
 # store (data/transactions.csv.enc) is meant to be tracked; see
-# scripts/encrypt_store.py and README.md.
+# scripts/encrypt_store.py and README.md. Raw bank exports (xlsx/xls) belong
+# outside this repo entirely (see README), but ignore them repo-wide too as
+# a safety net in case one ever lands here by accident.
 data/*.csv
 data/*.dec
-data/*.xlsx
-data/*.xls
+*.xlsx
+*.xls
 
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+.venv/
 .DS_Store
 .env

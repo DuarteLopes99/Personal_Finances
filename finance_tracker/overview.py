@@ -58,3 +58,31 @@ def compute_category_breakdown(df: pd.DataFrame, type_filter: str = schema.TYPE_
         .rename(columns={schema.CATEGORY: "Category", schema.AMOUNT: "Amount (€)"})
     )
     return out.round(2)
+
+
+def compute_method_breakdown(df: pd.DataFrame, type_filter: str = schema.TYPE_EXPENSE) -> pd.DataFrame:
+    """Total amount per Method (payment rail) for a given Type, sorted descending.
+
+    Complements compute_category_breakdown: Category answers "what was it
+    for", Method answers "how did the money move" — e.g. how much flowed
+    through MBWay vs. card vs. the meal-allowance card.
+    """
+    if df.empty:
+        return pd.DataFrame(columns=["Method", "Amount (€)"])
+    subset = df[df[schema.TYPE] == type_filter]
+    out = (
+        subset.groupby(schema.METHOD)[schema.AMOUNT]
+        .sum()
+        .sort_values(ascending=False)
+        .reset_index()
+        .rename(columns={schema.METHOD: "Method", schema.AMOUNT: "Amount (€)"})
+    )
+    return out.round(2)
+
+
+def exclude_method(df: pd.DataFrame, method: str = schema.MEAL_CARD_METHOD) -> pd.DataFrame:
+    """Drop every transaction (income or expense) paid/received via `method` —
+    e.g. exclude Cartão Alimentação to see the picture without meal-allowance
+    money, the same toggle the dashboard offers.
+    """
+    return df[df[schema.METHOD] != method]
