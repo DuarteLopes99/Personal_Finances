@@ -165,7 +165,9 @@ exclude_method()` is the Python-side equivalent.
 The dashboard has a **"Needs Review"** panel listing every expense still sitting in `Outros` — no
 purpose keyword matched at all. Clicking "Review" on a row opens a side panel to set the real
 Category / Sub-category / Method by hand; saving edits that transaction in place, and "Download
-updated transactions.csv" persists it.
+updated transactions.csv" persists it. `"Outros"` isn't a pickable Category in this panel — you
+have to choose something else before Save does anything, so a row can't accidentally get saved
+right back into the queue it came from.
 
 The panel also offers **"Remember for future transactions like this"** with an editable match
 keyword (prefilled from the description) — but only when the row's **Method is not MBWay or

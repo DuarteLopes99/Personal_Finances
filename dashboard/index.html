@@ -1159,11 +1159,16 @@ function openReviewPanel(transactionId) {
   document.getElementById("rp-notes").textContent = row.Notes || "";
   document.getElementById("rp-amount").textContent = Number(row["Amount (€)"]).toFixed(2);
 
+  // "Outros" is deliberately not a pickable option here — it's the "still
+  // unreviewed" state every row in this queue starts from, so leaving it
+  // selected would silently save the row right back into the queue. The
+  // placeholder forces an explicit real choice before Save will do anything.
   const catSel = document.getElementById("rp-category");
-  catSel.innerHTML = EXPENSE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join("");
-  catSel.value = row.Category;
+  const pickableCategories = EXPENSE_CATEGORIES.filter(c => c !== "Outros");
+  catSel.innerHTML = `<option value="" disabled selected>Choose a category…</option>` +
+    pickableCategories.map(c => `<option value="${c}">${c}</option>`).join("");
 
-  document.getElementById("rp-subcategory").value = row["Sub-category"] || "";
+  document.getElementById("rp-subcategory").value = row["Sub-category"] === "Diversos" ? "" : (row["Sub-category"] || "");
 
   const methodSel = document.getElementById("rp-method");
   methodSel.innerHTML = METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
@@ -1196,7 +1201,11 @@ document.getElementById("rp-save").addEventListener("click", () => {
   if (!row) return;
 
   const category = document.getElementById("rp-category").value;
-  const subCategory = document.getElementById("rp-subcategory").value.trim() || "Outros";
+  if (!category) {
+    setStatus("Pick a specific category before saving — leaving it as \"Outros\" means it's still unreviewed.", true);
+    return;
+  }
+  const subCategory = document.getElementById("rp-subcategory").value.trim() || "Diversos";
   const method = document.getElementById("rp-method").value;
   const remember = document.getElementById("rp-remember-field").style.display !== "none" &&
                    document.getElementById("rp-remember").checked;
@@ -1205,6 +1214,7 @@ document.getElementById("rp-save").addEventListener("click", () => {
   row["Sub-category"] = subCategory;
   row.Method = method;
 
+  let remembered = false;
   if (remember) {
     const keywords = document.getElementById("rp-keyword").value
       .split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
@@ -1213,12 +1223,17 @@ document.getElementById("rp-save").addEventListener("click", () => {
       overridesDirty = true;
       document.getElementById("btn-download-overrides").disabled = false;
       applyOverridesToStore();
+      remembered = true;
     }
   }
 
   document.getElementById("btn-download").disabled = false;
   closeReviewPanel();
   renderAll();
+  setStatus(
+    `Saved as ${category} / ${subCategory}.` +
+    (remembered ? ` Remembered for future "${document.getElementById("rp-keyword").value}" matches too.` : "")
+  );
 });
 
 document.getElementById("btn-download-overrides").addEventListener("click", () => {
