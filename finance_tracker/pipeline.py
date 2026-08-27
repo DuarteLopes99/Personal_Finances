@@ -38,6 +38,11 @@ def categorize_dataframe(raw: pd.DataFrame, source_file: str, overrides=None) ->
             schema.METHOD: method,
             schema.AMOUNT: round(abs(amount), 2),
             schema.NOTES: description,
+            # Filled in only by a manual review (dashboard panel or
+            # reviews.apply_reviews) — a freshly parsed bank row has no
+            # review attached to it yet.
+            schema.REVIEW_NOTE: "",
+            schema.REVIEWED_AT: "",
             schema.MONTH: pd.Timestamp(date).month,
             schema.YEAR: pd.Timestamp(date).year,
             schema.SOURCE_FILE: source_file,
@@ -58,14 +63,31 @@ def ingest_monthly_file(path, overrides=None) -> pd.DataFrame:
     return categorize_dataframe(raw, source_file=path.name, overrides=overrides)
 
 
+def ensure_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add any schema column the frame is missing, in the canonical order.
+
+    Stores written before the review columns existed are still perfectly
+    valid files; they just need the newer columns filled in as empty rather
+    than being rejected or silently losing the ones they do have.
+    """
+    df = df.copy()
+    for column in schema.COLUMNS:
+        if column not in df.columns:
+            df[column] = ""
+    extras = [c for c in df.columns if c not in schema.COLUMNS]
+    return df[schema.COLUMNS + extras]
+
+
 def load_store(csv_path) -> pd.DataFrame:
     csv_path = Path(csv_path)
     if not csv_path.exists():
         return pd.DataFrame(columns=schema.COLUMNS)
-    return pd.read_csv(csv_path, dtype={schema.TRANSACTION_ID: str})
+    df = pd.read_csv(csv_path, dtype={schema.TRANSACTION_ID: str})
+    return ensure_columns(df)
 
 
 def save_store(df: pd.DataFrame, csv_path) -> None:
+    df = ensure_columns(df)
     df = df.sort_values([schema.YEAR, schema.MONTH, schema.DATE]).reset_index(drop=True)
     df.to_csv(csv_path, index=False)
 
@@ -81,9 +103,21 @@ def merge_into_store(existing: pd.DataFrame, new_rows: pd.DataFrame):
     known_ids = set(existing[schema.TRANSACTION_ID])
     is_new = ~new_rows[schema.TRANSACTION_ID].isin(known_ids)
 
+    # ...and not a repeat of a row earlier in this same batch. Checking only
+    # against `existing` catches a file re-uploaded later but not the same
+    # transaction appearing twice inside one file, so two identical rows in a
+    # single export both landed in the store. The dashboard's mergeIntoStore
+    # has always added each id to its seen-set as it goes; this is the Python
+    # side catching up, and the two engines now agree.
+    is_new &= ~new_rows[schema.TRANSACTION_ID].duplicated(keep="first")
+
     to_add = new_rows[is_new]
     n_added = len(to_add)
     n_duplicate = len(new_rows) - n_added
 
-    merged = pd.concat([existing, to_add], ignore_index=True)
+    # Concatenating onto a column-only frame is deprecated in pandas (the
+    # empty side's all-NA columns muddy the result dtypes), and it's also just
+    # a no-op — the new rows already carry the full schema.
+    merged = to_add.reset_index(drop=True) if len(existing) == 0 else \
+        pd.concat([existing, to_add], ignore_index=True)
     return merged, n_added, n_duplicate

@@ -8,9 +8,10 @@ Losing the passphrase means losing access to the encrypted file — there is no
 recovery mechanism by design.
 
 Usage:
-    python scripts/encrypt_store.py [path/to/transactions.csv] [path/to/output.enc]
+    python3 scripts/encrypt_store.py [path/to/transactions.csv] [path/to/output.enc]
 """
 
+import argparse
 import getpass
 import os
 import sys
@@ -38,8 +39,14 @@ def _read_passphrase() -> str:
 
 
 def main():
-    input_path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_INPUT
-    output_path = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("input", nargs="?", type=Path, default=DEFAULT_INPUT,
+                        help="Store to encrypt (default: data/transactions.csv)")
+    parser.add_argument("output", nargs="?", type=Path, default=None,
+                        help="Where to write the .enc (default: alongside, with .enc appended)")
+    args = parser.parse_args()
+    input_path, output_path = args.input, args.output
 
     if not input_path.exists():
         print(f"{input_path} does not exist.", file=sys.stderr)

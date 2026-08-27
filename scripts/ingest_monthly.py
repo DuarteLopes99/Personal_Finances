@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from finance_tracker import pipeline  # noqa: E402
+from finance_tracker import pipeline, reviews  # noqa: E402
 
 DEFAULT_STORE = Path(__file__).resolve().parent.parent / "data" / "transactions.csv"
 
@@ -40,9 +40,28 @@ def main():
         total_duplicate += n_duplicate
         print(f"  Parsed {len(new_rows)} transactions — {n_added} added, {n_duplicate} already known.")
 
+    # Manual review decisions live outside the store (see reviews.py) so that
+    # rebuilding it from raw exports doesn't discard the work of working out
+    # what an unrecognized transaction actually was. Re-applying them here
+    # means a re-ingested row comes back already reviewed.
+    saved_reviews = reviews.load_reviews()
+    store, n_reviewed = reviews.apply_reviews(store, saved_reviews)
+
+    # Then fill in anything whose description exactly matches a row already
+    # reviewed — next month's "Uber Rides" inherits last month's answer rather
+    # than landing back in the queue. Merchants only; see apply_by_description.
+    store, n_derived = reviews.apply_by_description(store, saved_reviews)
+    if n_derived:
+        reviews.save_reviews(saved_reviews)
+
     pipeline.save_store(store, args.store)
     print(f"\nAdded {total_added} new transactions, skipped {total_duplicate} duplicates across "
           f"{len(args.files)} file(s).")
+    if n_reviewed:
+        print(f"Re-applied {n_reviewed} saved review decision(s) from data/review_decisions.json.")
+    if n_derived:
+        print(f"Auto-filled {n_derived} transaction(s) whose description exactly matches one you "
+              f"already reviewed (marked as auto-applied, not individually checked).")
     print(f"Store now has {len(store)} total transactions -> {args.store}")
 
 

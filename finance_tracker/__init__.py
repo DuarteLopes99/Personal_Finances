@@ -1,3 +1,5 @@
-from . import schema, categorize, loader, pipeline, overview, crypto, overrides
+from . import (taxonomy, schema, categorize, loader, pipeline, overview, crypto,
+               overrides, reviews)
 
-__all__ = ["schema", "categorize", "loader", "pipeline", "overview", "crypto", "overrides"]
+__all__ = ["taxonomy", "schema", "categorize", "loader", "pipeline", "overview",
+           "crypto", "overrides", "reviews"]

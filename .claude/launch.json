@@ -4,7 +4,7 @@
     {
       "name": "finance-dashboard",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8792"],
+      "runtimeArgs": ["scripts/serve_dashboard.py", "--no-browser"],
       "port": 8792
     }
   ]

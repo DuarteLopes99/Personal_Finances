@@ -15,6 +15,16 @@
     --gridline:       #e1e0d9;
     --baseline:       #c3c2b7;
     --good:           #006300;
+    --warn:           #a34400;
+    /* Reserved status palette — never reused as a series colour. Three bands
+       only: a fourth (status-serious #ec835a) sits ΔE 13.6 from warning in
+       normal vision, below the 15 floor, so it was measured out rather than
+       eyeballed in. Sub-3:1 warning is the documented relaxation, and its
+       mitigation is the icon + text label the meter always shows. */
+    --status-critical: #d03b3b;
+    --status-warning:  #fab219;
+    --status-good:     #0ca30c;
+    --focus:          #0b57d0;
     --border:         rgba(11,11,11,0.10);
     --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
     --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
@@ -30,6 +40,11 @@
       --gridline:       #2c2c2a;
       --baseline:       #383835;
       --good:           #0ca30c;
+      --warn:           #f0a068;
+      --status-critical: #d03b3b;
+      --status-warning:  #fab219;
+      --status-good:     #0ca30c;
+      --focus:          #8ab4f8;
       --border:         rgba(255,255,255,0.10);
       --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
       --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
@@ -45,10 +60,50 @@
     --gridline:       #2c2c2a;
     --baseline:       #383835;
     --good:           #0ca30c;
+    --warn:           #f0a068;
+    --status-critical: #d03b3b;
+    --status-warning:  #fab219;
+    --status-good:     #0ca30c;
+    --focus:          #8ab4f8;
     --border:         rgba(255,255,255,0.10);
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
     --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
   }
+
+
+  /* --- Month health meters -------------------------------------------------
+     Two ratios against a limit, so: meters, not radial gauges. The fill
+     carries severity; the unfilled track is the same ramp a step lighter, so
+     the state reads across the whole bar rather than only where it stops.
+     Status colour never carries the meaning alone — every meter ships an icon
+     and a word. */
+  .meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 4px 0 18px; }
+  .meter { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px 12px; background: var(--surface-1); }
+  .meter-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+  .meter-label { font-size: 13px; color: var(--text-secondary); }
+  .meter-value { font-size: 30px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-primary); }
+  .meter-sub { font-size: 12px; color: var(--text-muted); margin: 0 0 10px; }
+  .meter-track {
+    position: relative; height: 10px; border-radius: 5px; overflow: hidden;
+    /* Plain fallback first: where color-mix() is unsupported the next
+       declaration is dropped, and without this the track would render with no
+       background at all — an invisible "unfilled" half, which reads as a full
+       bar. The tinted version is the intended look (the same ramp, lighter, so
+       the state reads across the whole bar). */
+    background: var(--gridline);
+    background: color-mix(in srgb, var(--meter-color) 18%, var(--surface-1));
+  }
+  .meter-fill {
+    height: 100%; border-radius: 5px; background: var(--meter-color);
+    transition: width .25s ease;
+  }
+  /* Threshold ticks sit ON the track so the bands are legible without a legend. */
+  .meter-tick { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--surface-1); opacity: .9; }
+  .meter-state { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; font-weight: 600; }
+  .meter-state .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--meter-color); flex: none; }
+  .meter-state .icon { font-size: 12px; }
+  .meter-scale { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  @media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }
 
   * { box-sizing: border-box; }
   body {
@@ -60,6 +115,36 @@
   .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
   header h1 { font-size: 22px; margin: 0 0 4px; }
   header p { margin: 0 0 20px; color: var(--text-secondary); font-size: 14px; }
+
+  /* --- Accessibility primitives -------------------------------------- */
+  /* Every interactive element gets the same unmistakable focus ring. The
+     browser default is easy to lose against the card backgrounds, and this
+     page is entirely usable by keyboard, so the ring has to be obvious. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  /* Visually hidden but still announced by screen readers and still
+     focusable — used for the file inputs (see .filebtn) and for labels that
+     would be redundant noise on screen but are essential without one. */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+  .skip-link {
+    position: absolute; left: -9999px; top: 0; z-index: 100;
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 0 0 8px 0; padding: 10px 16px;
+    font-size: 14px; text-decoration: none;
+  }
+  .skip-link:focus { left: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+  @media (prefers-contrast: more) {
+    :root { --border: rgba(11,11,11,0.45); --text-secondary: #3a3a38; }
+  }
 
   .card {
     background: var(--surface-1);
@@ -76,13 +161,18 @@
     border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
     font-size: 13px; cursor: pointer; color: var(--text-primary); background: var(--page-plane);
   }
-  .panel-row label.filebtn input { display: none; }
+  /* The file input is hidden but NOT display:none — that would take it out of
+     the tab order and make every "load a file" button keyboard-unreachable.
+     It stays focusable, and .filebtn:focus-within paints the ring on the
+     label the user actually sees. */
+  .panel-row label.filebtn input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .panel-row label.filebtn:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .panel-row label.filebtn.disabled { opacity: 0.45; pointer-events: none; }
   .checkbox-inline {
     display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-primary); cursor: pointer;
   }
   #status-line { font-size: 13px; color: var(--text-secondary); margin-top: 10px; }
-  #status-line.warn { color: #ec835a; }
+  #status-line.warn { color: var(--warn); font-weight: 600; }
   button.primary {
     border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
     font-size: 13px; cursor: pointer; background: var(--series-1); color: #fff; font-weight: 600;
@@ -159,202 +249,584 @@
   .side-panel h3 { margin: 0 0 4px; font-size: 16px; }
   .side-panel .panel-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
   .panel-field { margin-bottom: 14px; }
-  .panel-field label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .panel-field label, .panel-field .panel-label-static {
+    display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;
+  }
   .panel-field .readonly { font-size: 13px; color: var(--text-primary); }
   .panel-field select, .panel-field input[type=text] {
     width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
     font-size: 13px; background: var(--page-plane); color: var(--text-primary); box-sizing: border-box;
   }
-  #rp-remember-field { border-top: 1px solid var(--gridline); padding-top: 14px; }
-  #rp-remember-field label.checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-primary); }
-  #rp-remember-field .hint { font-size: 11px; color: var(--text-muted); margin: 4px 0 8px; }
+  .panel-field textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+    font-size: 13px; font-family: inherit; background: var(--page-plane); color: var(--text-primary);
+    box-sizing: border-box; min-height: 68px; resize: vertical;
+  }
+  .field-hint { font-size: 11px; color: var(--text-muted); margin: 4px 0 0; }
+  .remember-field { border-top: 1px solid var(--gridline); padding-top: 14px; margin-top: 4px; }
+  .remember-field label.checkbox { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--text-primary); }
+  .remember-field .hint { font-size: 11px; color: var(--text-muted); margin: 4px 0 8px; }
+  /* The peer/MBWay variant of "remember" is the non-default, riskier one —
+     it gets a visible caution rail so it can never be mistaken for the plain
+     merchant case sitting in the same slot of the panel. */
+  #rp-remember-peer-field { border-left: 3px solid var(--series-4); padding-left: 10px; }
+  /* The peer variant of bulk-apply carries the same caution rail, for the
+     same reason: a counterparty's name doesn't fix what the money was for. */
+  #rp-siblings-field.peer { border-left: 3px solid var(--series-4); padding-left: 10px; }
+  .sibling-list {
+    list-style: none; margin: 8px 0 0; padding: 0; max-height: 132px; overflow-y: auto;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .sibling-list li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+  .sibling-list li + li { border-top: 1px solid var(--gridline); }
+  .sibling-list .amt { font-variant-numeric: tabular-nums; color: var(--text-primary); }
+  .sibling-list label { display: flex; align-items: center; gap: 7px; flex: 1; cursor: pointer; }
+  .sibling-controls { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+  .sibling-controls button.link { padding: 2px 8px; font-size: 11px; }
+
+  /* Income vs expense, stated rather than inferred: they use different
+     category lists and move every total on the page in opposite directions. */
+  .type-banner {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px;
+    border: 1px solid var(--border); background: var(--page-plane); color: var(--text-secondary);
+  }
+  .type-badge {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor;
+  }
+  .type-banner.income { border-left: 4px solid var(--series-1); }
+  .type-banner.income .type-badge { color: var(--series-1); }
+  .type-banner.expense { border-left: 4px solid var(--series-2); }
+  .type-banner.expense .type-badge { color: var(--series-2); }
+  .type-banner.mixed { border-left: 4px solid var(--series-4); }
+  .type-banner.mixed .type-badge { color: var(--series-4); }
+
+  .field-hint.conflict { color: var(--warn); font-weight: 600; }
+  .hint-inline { font-size: 11px; color: var(--text-muted); flex: 1; min-width: 220px; }
+  td.select-cell, th.select-cell { width: 28px; }
   .panel-actions { display: flex; gap: 8px; margin-top: 18px; }
+  button.undo {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 3px 10px; font-size: 12px; color: var(--series-1); cursor: pointer; margin-left: 8px;
+  }
+
+  /* --- Monthly analysis ---------------------------------------------- */
+  .analysis-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 14px; }
+  .analysis-controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .stat {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--page-plane);
+  }
+  .stat .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+  .stat .value { font-size: 20px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  /* Direction is never carried by colour alone — each delta also states
+     "more"/"less" in words, for colour-blind readers and for anyone reading
+     this through a screen reader. */
+  .delta.up { color: var(--series-8); }
+  .delta.down { color: var(--good); }
+  .analysis-note { font-size: 12px; color: var(--text-muted); margin: 12px 0 0; }
+
+  .health-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .health-list li { padding: 7px 0; border-bottom: 1px solid var(--gridline); display: flex; gap: 8px; align-items: baseline; }
+  .health-list li:last-child { border-bottom: 0; }
+  .health-list .marker { flex: none; font-weight: 700; }
+  .health-list .marker.ok { color: var(--good); }
+  .health-list .marker.warn { color: var(--warn); }
+  .health-list .detail { color: var(--text-secondary); }
+
+  .badge {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border);
+    color: var(--text-secondary); white-space: nowrap;
+  }
+  .badge.reviewed { color: var(--good); border-color: var(--good); }
+  /* Derived rows are marked differently from ones a human actually opened —
+     the distinction is the whole point of not copying the note. */
+  .badge.auto { color: var(--text-muted); border-style: dashed; }
+  .row-note { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .table-caption { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to dashboard content</a>
 <div class="wrap">
   <header>
     <h1>Personal Finance Dashboard</h1>
     <p>Reads the centralized transactions store, and can ingest a new monthly bank export directly in the browser.</p>
   </header>
 
-  <div class="card">
-    <h2>Data source</h2>
+<main id="main">
+  <section class="card" aria-labelledby="h-data-source">
+    <h2 id="h-data-source">Data source</h2>
     <div class="panel-row">
       <label class="filebtn">
-        📄 Load transactions.csv
+        <span aria-hidden="true">📄</span> Load transactions.csv
         <input id="file-store" type="file" accept=".csv">
       </label>
       <label class="filebtn">
-        🔒 Load encrypted (.enc)
+        <span aria-hidden="true">🔒</span> Load encrypted (.enc)
         <input id="file-store-enc" type="file" accept=".enc">
       </label>
       <label class="filebtn disabled" id="btn-monthly">
-        ➕ Add monthly file(s) (xlsx/csv)
+        <span aria-hidden="true">➕</span> Add monthly file(s) (xlsx/csv)
         <input id="file-monthly" type="file" accept=".xlsx,.xls,.csv" multiple>
       </label>
-      <button class="danger" id="btn-clear" disabled>🗑 Clear all data</button>
-      <button class="primary" id="btn-download" disabled>⬇ Download updated transactions.csv</button>
-      <button class="primary" id="btn-download-enc" disabled>🔒 Download encrypted (.enc)</button>
-      <button class="primary" id="btn-download-overrides" disabled>⬇ Download updated category_overrides.json</button>
+      <button class="danger" id="btn-clear" disabled><span aria-hidden="true">🗑</span> Clear all data</button>
+      <button class="primary" id="btn-download" disabled><span aria-hidden="true">⬇</span> Download updated transactions.csv</button>
+      <button class="primary" id="btn-download-enc" disabled><span aria-hidden="true">🔒</span> Download encrypted (.enc)</button>
+      <button class="primary" id="btn-download-overrides" disabled><span aria-hidden="true">⬇</span> Download updated category_overrides.json</button>
+      <button class="primary" id="btn-download-reviews" disabled><span aria-hidden="true">⬇</span> Download review_decisions.json</button>
     </div>
     <div class="panel-row" style="margin-top:10px;">
+      <label class="sr-only" for="year-filter">Filter every chart and table by year</label>
       <select id="year-filter"></select>
       <label class="checkbox-inline">
         <input type="checkbox" id="exclude-meal-card">
         Exclude Cartão Alimentação (meal card)
       </label>
     </div>
-    <div id="status-line">Attempting to load ../data/transactions.csv automatically…</div>
-  </div>
+    <!-- role=status makes every state change (loaded, merged, saved, failed)
+         announced by a screen reader without stealing focus. -->
+    <div id="status-line" role="status" aria-live="polite">Attempting to load ../data/transactions.csv automatically…</div>
+  </section>
 
-  <div class="card">
-    <h2>Add a transaction manually</h2>
+  <section class="card" aria-labelledby="h-manual">
+    <h2 id="h-manual">Add a transaction manually</h2>
     <p class="manual-hint">For anything that doesn't come from a bank export — cash you received or spent, a gift, etc.</p>
     <div class="manual-form">
       <div class="mf-row">
-        <label>Type
+        <label for="mf-type">Type
           <select id="mf-type">
             <option value="Expense">Expense</option>
             <option value="Income">Income</option>
           </select>
         </label>
-        <label>Date
+        <label for="mf-date">Date
           <input type="date" id="mf-date">
         </label>
-        <label>Amount (€)
+        <label for="mf-amount">Amount (€)
           <input type="number" id="mf-amount" min="0" step="0.01" placeholder="0.00">
         </label>
       </div>
       <div class="mf-row">
-        <label>Category
+        <label for="mf-category">Category
           <select id="mf-category"></select>
         </label>
-        <label>Sub-category
-          <input type="text" id="mf-subcategory" placeholder="optional">
+        <!-- A picker, like the review panel's. As a free-text box this was the
+             last writer that could put an off-taxonomy pair into the store:
+             typing "Ginásio" under Alimentação created one, and leaving it
+             blank defaulted the sub-category to the *category name*, which is
+             not a pair the taxonomy contains either. -->
+        <label for="mf-subcategory">Sub-category
+          <select id="mf-subcategory"></select>
         </label>
-        <label>Method
+        <label for="mf-method">Method
           <select id="mf-method"></select>
         </label>
       </div>
       <div class="mf-row">
-        <label class="mf-notes">Notes
+        <label class="mf-notes" for="mf-notes">Notes
           <input type="text" id="mf-notes" placeholder="e.g. Cash gift from parents">
         </label>
-        <button class="primary" id="mf-add">➕ Add transaction</button>
+        <button class="primary" id="mf-add"><span aria-hidden="true">➕</span> Add transaction</button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="card">
+  <section class="card" aria-labelledby="h-totals">
+    <h2 id="h-totals" class="sr-only">Totals for the current filter</h2>
     <div class="tiles" id="tiles"></div>
-  </div>
+  </section>
 
-  <div class="card" id="review-card">
-    <h2>Needs Review <span id="review-count" class="pill count"></span></h2>
+  <section class="card" id="review-card" aria-labelledby="h-review">
+    <h2 id="h-review">Needs Review <span id="review-count" class="pill count"></span></h2>
     <div id="review-empty" style="display:none; color:var(--text-secondary); font-size:13px;">
-      Nothing to review — every expense either matched a specific category, or is a peer-to-peer
-      transfer with the counterparty's name already attached.
+      Nothing to review — every transaction matched a category, or is cash / a peer-to-peer transfer,
+      which are answers rather than unknowns.
+    </div>
+    <!-- This queue is only the rows nothing matched. Correcting a row the rules
+         got *wrong* is a different job with a different starting point: you
+         know the category, you just disagree with it. That belongs in the
+         Transactions table, where you can filter to the category you doubt. -->
+    <p class="field-hint">
+      Reviewing a transaction the rules got <em>wrong</em>? That's the Transactions table below —
+      filter by category and sub-category, then use “Review” on any row.
+      <button class="link" id="btn-audit-auto" type="button">Show auto-classified, unchecked rows</button>
+    </p>
+    <!-- Ad-hoc batch: tick any rows that belong together for a reason the
+         description can't express — the four MBWay transfers that were one
+         dinner split — and give them a category in one pass. Deliberately
+         creates no rule and no remembered association. -->
+    <div class="panel-row" id="review-toolbar" style="margin-bottom:10px;">
+      <label class="checkbox-inline">
+        <input type="checkbox" id="review-select-all">
+        Select rows
+      </label>
+      <button class="primary" id="btn-review-selected" disabled>
+        Review <span id="review-selected-count">0</span> selected together
+      </button>
+      <span class="hint-inline" id="review-selection-hint">
+        For transactions that belong together for a reason the description doesn't show — a dinner
+        split over several transfers. Categorizes them; remembers no rule.
+      </span>
     </div>
     <div class="scroll-table" id="review-table-wrap">
       <table>
+        <caption class="sr-only">Transactions no keyword rule could categorize, newest first</caption>
         <thead>
-          <tr><th>Date</th><th>Notes</th><th>Current guess</th><th class="num">Amount (€)</th><th></th></tr>
+          <tr>
+            <th scope="col"><span class="sr-only">Select</span></th>
+            <th scope="col">Type</th>
+            <th scope="col">Date</th><th scope="col">Notes</th><th scope="col">Current guess</th>
+            <th scope="col" class="num">Amount (€)</th><th scope="col"><span class="sr-only">Action</span></th>
+          </tr>
         </thead>
         <tbody id="review-body"></tbody>
       </table>
     </div>
-  </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-analysis">
+    <h2 id="h-analysis">Monthly analysis</h2>
+    <div class="analysis-controls">
+      <label for="analysis-month">Month
+        <select id="analysis-month"></select>
+      </label>
+      <label for="analysis-baseline">Compare against
+        <select id="analysis-baseline">
+          <option value="3">Average of the previous 3 months</option>
+          <option value="6">Average of the previous 6 months</option>
+          <option value="12">Average of the previous 12 months</option>
+        </select>
+      </label>
+    </div>
+    <!-- Placed directly under the month selector: both meters describe the
+         month currently selected there, and nothing else on the card. -->
+    <div class="meters" id="analysis-meters"></div>
+    <div class="stat-grid" id="analysis-stats"></div>
+    <p class="analysis-note" id="analysis-note"></p>
+  </section>
 
   <div class="charts-grid" style="margin-top:16px;">
-    <div class="card">
-      <h2>Income vs Expenses by month</h2>
+    <section class="card" aria-labelledby="h-pacing">
+      <h2 id="h-pacing">Spending pace through the month</h2>
+      <div class="chart-box"><canvas id="chart-pacing"></canvas></div>
+      <p class="table-caption">Cumulative spend by day — the selected month against the baseline average.
+        A line above the baseline means you're ahead of your usual pace at the same point in the month.</p>
+    </section>
+    <section class="card" aria-labelledby="h-cat-trend">
+      <h2 id="h-cat-trend">Category spend by month</h2>
+      <div class="chart-box"><canvas id="chart-cat-trend"></canvas></div>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="cat-trend-table"></div>
+      </details>
+    </section>
+    <section class="card" aria-labelledby="h-top-sub">
+      <h2 id="h-top-sub">Top sub-categories this month</h2>
+      <div class="chart-box"><canvas id="chart-top-sub"></canvas></div>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="top-sub-table"></div>
+      </details>
+    </section>
+  </div>
+
+  <!-- Per-month, so it sits with the other per-month cards. Two questions in
+       one place: what were the biggest single spends, and which of them are
+       unusual *for this household* rather than merely large. A €70 supermarket
+       run is the top line most months and means nothing; a €70 pharmacy visit
+       against a €12 median is the one worth opening. -->
+  <section class="card" aria-labelledby="h-biggest">
+    <h2 id="h-biggest">Major spends &amp; outliers <span id="outlier-count" class="pill count"></span></h2>
+    <div class="scroll-table" style="max-height:340px;">
+      <table>
+        <caption class="sr-only">The largest single expenses of the selected month, with unusual ones flagged</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th><th scope="col">Category</th><th scope="col">Notes</th>
+            <th scope="col" class="num">Amount (€)</th><th scope="col" class="num">% of month</th>
+            <th scope="col">vs usual</th>
+          </tr>
+        </thead>
+        <tbody id="biggest-body"></tbody>
+      </table>
+    </div>
+    <p class="table-caption" id="biggest-note"></p>
+  </section>
+
+  <!-- Overall analysis: everything loaded, not the selected month. Two views,
+       because they answer different questions — "is this month drifting from
+       the last?" and "is this year better than last?" — and a single table
+       trying to do both would answer neither. -->
+  <section class="card" aria-labelledby="h-mom">
+    <h2 id="h-mom">Month vs month</h2>
+    <div class="scroll-table" style="max-height:360px;">
+      <table>
+        <caption class="sr-only">Every month compared with the one before it</caption>
+        <thead>
+          <tr>
+            <th scope="col">Month</th>
+            <th scope="col" class="num">Income</th>
+            <th scope="col" class="num">Spending</th>
+            <th scope="col" class="num">Net</th>
+            <th scope="col" class="num">Kept</th>
+            <th scope="col" class="num">Spending vs prev</th>
+          </tr>
+        </thead>
+        <tbody id="mom-body"></tbody>
+      </table>
+    </div>
+    <p class="table-caption" id="mom-note"></p>
+  </section>
+
+  <section class="card" aria-labelledby="h-yearly">
+    <h2 id="h-yearly">Yearly analysis</h2>
+    <div class="scroll-table">
+      <table>
+        <caption class="sr-only">Totals per calendar year</caption>
+        <thead>
+          <tr>
+            <th scope="col">Year</th>
+            <th scope="col" class="num">Months</th>
+            <th scope="col" class="num">Income</th>
+            <th scope="col" class="num">Spending</th>
+            <th scope="col" class="num">Invested</th>
+            <th scope="col" class="num">Net</th>
+            <th scope="col" class="num">Kept</th>
+            <th scope="col" class="num">Avg spend/mo</th>
+          </tr>
+        </thead>
+        <tbody id="yearly-body"></tbody>
+      </table>
+    </div>
+    <p class="table-caption" id="yearly-note"></p>
+  </section>
+
+  <section class="card" aria-labelledby="h-health">
+    <h2 id="h-health">Data health</h2>
+    <ul class="health-list" id="health-list"></ul>
+  </section>
+
+  <div class="charts-grid" style="margin-top:16px;">
+    <section class="card" aria-labelledby="h-trend">
+      <h2 id="h-trend">Income vs Expenses by month</h2>
       <div class="chart-box"><canvas id="chart-trend"></canvas></div>
       <details class="table-toggle">
         <summary>View as table</summary>
         <div id="trend-table"></div>
       </details>
-    </div>
-    <div class="card">
-      <h2>Net balance by month</h2>
+    </section>
+    <section class="card" aria-labelledby="h-net">
+      <h2 id="h-net">Net balance by month</h2>
       <div class="chart-box"><canvas id="chart-net"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Expense categories</h2>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="net-table"></div>
+      </details>
+    </section>
+    <section class="card" aria-labelledby="h-recurring">
+      <h2 id="h-recurring">Recurring commitments</h2>
+      <p class="field-hint" style="margin-top:-6px;">Across the whole loaded history, not the selected month — a commitment is only visible once it has repeated.</p>
+      <div class="scroll-table" style="max-height:280px;">
+        <table>
+          <caption class="sr-only">Charges that repeat monthly for a consistent amount</caption>
+          <thead>
+            <tr>
+              <th scope="col">What</th><th scope="col" class="num">Typical</th>
+              <th scope="col" class="num">Months</th><th scope="col" class="num">Per year</th>
+            </tr>
+          </thead>
+          <tbody id="recurring-body"></tbody>
+        </table>
+      </div>
+      <p class="table-caption" id="recurring-note"></p>
+    </section>
+    <section class="card" aria-labelledby="h-exp-cat">
+      <h2 id="h-exp-cat">Expense categories</h2>
       <div class="chart-box"><canvas id="chart-expense-cat"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Income categories</h2>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="expense-cat-table"></div>
+      </details>
+    </section>
+    <section class="card" aria-labelledby="h-inc-cat">
+      <h2 id="h-inc-cat">Income categories</h2>
       <div class="chart-box"><canvas id="chart-income-cat"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Expense methods</h2>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="income-cat-table"></div>
+      </details>
+    </section>
+    <section class="card" aria-labelledby="h-exp-met">
+      <h2 id="h-exp-met">Expense methods</h2>
       <div class="chart-box"><canvas id="chart-expense-method"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Income methods</h2>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="expense-method-table"></div>
+      </details>
+    </section>
+    <section class="card" aria-labelledby="h-inc-met">
+      <h2 id="h-inc-met">Income methods</h2>
       <div class="chart-box"><canvas id="chart-income-method"></canvas></div>
-    </div>
+      <details class="table-toggle">
+        <summary>View as table</summary>
+        <div id="income-method-table"></div>
+      </details>
+    </section>
   </div>
 
-  <div class="card">
-    <h2>Transactions</h2>
+  <section class="card" aria-labelledby="h-transactions">
+    <h2 id="h-transactions">Transactions</h2>
     <div class="filters">
+      <label class="sr-only" for="search-box">Search notes, review notes, category or sub-category</label>
       <input type="text" id="search-box" placeholder="Search notes / category…">
+      <label class="sr-only" for="type-filter">Filter by type</label>
       <select id="type-filter">
         <option value="">All types</option>
         <option value="Income">Income</option>
         <option value="Expense">Expense</option>
       </select>
+      <label class="sr-only" for="cat-filter">Filter by category</label>
       <select id="cat-filter"><option value="">All categories</option></select>
+      <label class="sr-only" for="subcat-filter">Filter by sub-category</label>
+      <select id="subcat-filter"><option value="">All sub-categories</option></select>
+      <label class="sr-only" for="review-filter">Filter by review state</label>
+      <select id="review-filter">
+        <option value="">Any review state</option>
+        <option value="queued">Awaiting an answer</option>
+        <option value="auto">Auto-classified, unchecked</option>
+        <option value="reviewed">Reviewed by hand</option>
+      </select>
+      <button class="link" id="btn-clear-filters" type="button">Clear filters</button>
     </div>
     <div class="scroll-table">
       <table>
+        <caption class="sr-only">Transactions matching the current filters, newest first</caption>
         <thead>
-          <tr><th>Date</th><th>Type</th><th>Category</th><th>Sub-category</th><th>Method</th><th class="num">Amount (€)</th><th>Notes</th></tr>
+          <tr>
+            <th scope="col">Date</th><th scope="col">Type</th><th scope="col">Category</th>
+            <th scope="col">Sub-category</th><th scope="col">Method</th>
+            <th scope="col" class="num">Amount (€)</th><th scope="col">Notes</th>
+            <th scope="col"><span class="sr-only">Action</span></th>
+          </tr>
         </thead>
         <tbody id="tx-body"></tbody>
       </table>
     </div>
-  </div>
+    <p class="table-caption" id="tx-count"></p>
+  </section>
+</main>
 </div>
 
 <div class="panel-backdrop" id="review-panel-backdrop" hidden></div>
-<aside class="side-panel" id="review-panel" hidden>
-  <h3>Complete this transaction</h3>
+<aside class="side-panel" id="review-panel" role="dialog" aria-modal="true" aria-labelledby="rp-title" hidden>
+  <h3 id="rp-title">Complete this transaction</h3>
+
+  <!-- Income and expense use different category lists and mean opposite
+       things for every total on the page, so which one you're looking at is
+       stated outright rather than inferred from the numbers. -->
+  <div class="type-banner" id="rp-type-banner">
+    <span class="type-badge" id="rp-type-badge"></span>
+    <span id="rp-type-explainer"></span>
+  </div>
+
   <div class="panel-sub" id="rp-current-guess"></div>
 
-  <div class="panel-field">
-    <label>Date</label>
-    <div class="readonly" id="rp-date"></div>
+  <div id="rp-single-fields">
+    <div class="panel-field">
+      <span class="panel-label-static">Date</span>
+      <div class="readonly" id="rp-date"></div>
+    </div>
+    <div class="panel-field">
+      <span class="panel-label-static">Notes (original description)</span>
+      <div class="readonly" id="rp-notes"></div>
+    </div>
+    <div class="panel-field">
+      <span class="panel-label-static">Amount (€)</span>
+      <div class="readonly" id="rp-amount"></div>
+    </div>
   </div>
-  <div class="panel-field">
-    <label>Notes (original description)</label>
-    <div class="readonly" id="rp-notes"></div>
-  </div>
-  <div class="panel-field">
-    <label>Amount (€)</label>
-    <div class="readonly" id="rp-amount"></div>
+
+  <div class="panel-field" id="rp-batch-field">
+    <span class="panel-label-static" id="rp-batch-label"></span>
+    <ul class="sibling-list" id="rp-batch-list"></ul>
+    <p class="field-hint">These are categorized together as a one-off. Nothing about the grouping
+      is remembered — no rule is created, and a future transaction from any of them is unaffected.</p>
   </div>
 
   <div class="panel-field">
     <label for="rp-category">Category</label>
     <select id="rp-category"></select>
   </div>
+  <!-- A picker, not a text box. Free text is how this store ended up with
+       Gasoleo next to Gasóleo and SuperMercado filed under Lazer: every typo
+       silently created a new bucket that the charts then showed as a separate
+       line. The options come from the taxonomy for whichever category is
+       selected — see finance_tracker/taxonomy.py. -->
   <div class="panel-field">
     <label for="rp-subcategory">Sub-category</label>
-    <input type="text" id="rp-subcategory">
+    <select id="rp-subcategory"></select>
+    <p class="field-hint" id="rp-subcategory-hint"></p>
   </div>
   <div class="panel-field">
     <label for="rp-method">Method</label>
     <select id="rp-method"></select>
   </div>
 
-  <div class="panel-field" id="rp-remember-field">
-    <label class="checkbox"><input type="checkbox" id="rp-remember"> Remember for future transactions like this</label>
-    <p class="hint">Only offered for unrecognized merchants — a peer-to-peer transfer's purpose can
-      change every month, so those are never auto-applied from a past correction.</p>
+  <!-- The whole point of reviewing a transaction is the research you did to
+       work out what it was. Without somewhere to write that down, the answer
+       survives as a bare category and the reasoning is gone the moment you
+       close the panel — and next year you re-do the same detective work. -->
+  <div class="panel-field">
+    <label for="rp-review-note">What was it? (kept with the transaction)</label>
+    <textarea id="rp-review-note" placeholder="e.g. physio session — receipt in the health folder; recurring every 2nd Tuesday"></textarea>
+    <p class="field-hint">Saved into the store's <code>Review Note</code> column and into
+      review_decisions.json, so it survives rebuilding the store from raw exports. Searchable
+      from the Transactions table.</p>
+  </div>
+
+  <!-- Bulk-apply to the other queue items with the identical description.
+       Proposed, never silent: one click here can change ten rows, so the
+       count and the rows themselves are on screen before you commit. -->
+  <div class="panel-field remember-field" id="rp-siblings-field">
+    <label class="checkbox">
+      <input type="checkbox" id="rp-apply-siblings">
+      <span id="rp-siblings-label"></span>
+    </label>
+    <p class="hint" id="rp-siblings-hint"></p>
+    <!-- Per-row, not all-or-nothing: ten rows can share a description and
+         still not share a purpose, so seven can be ticked and three left in
+         the queue. -->
+    <div class="sibling-controls" id="rp-siblings-controls" hidden>
+      <button type="button" class="link" id="rp-siblings-all">Select all</button>
+      <button type="button" class="link" id="rp-siblings-none">Select none</button>
+      <span id="rp-siblings-tally"></span>
+    </div>
+    <ul class="sibling-list" id="rp-siblings-list"></ul>
+  </div>
+
+  <div class="panel-field remember-field" id="rp-remember-field">
+    <label class="checkbox"><input type="checkbox" id="rp-remember"> <span>Remember for future transactions like this</span></label>
+    <p class="hint">For merchants and companies, whose purpose doesn't change between
+      transactions. Applies to every matching row, now and in future monthly files.</p>
+    <label class="sr-only" for="rp-keyword">Match keyword</label>
     <input type="text" id="rp-keyword" placeholder="Match keyword (edit to the distinctive part)">
+  </div>
+
+  <!-- Opt-in, and never the default: see overrides.py for why a peer-to-peer
+       transfer's purpose is normally not safe to learn. Offered anyway
+       because re-typing the same correction every month for a counterparty
+       who genuinely is always the same thing is its own kind of data loss. -->
+  <div class="panel-field remember-field" id="rp-remember-peer-field">
+    <label class="checkbox">
+      <input type="checkbox" id="rp-remember-peer">
+      <span>Always file transfers from/to this person under this sub-category</span>
+    </label>
+    <p class="hint" id="rp-peer-hint"></p>
+    <label class="sr-only" for="rp-peer-keyword">Counterparty name to match</label>
+    <input type="text" id="rp-peer-keyword" placeholder="Counterparty name to match">
   </div>
 
   <div class="panel-actions">
@@ -366,22 +838,18 @@
 <script src="vendor/papaparse.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/chart.umd.min.js"></script>
+<!-- Taxonomy + keyword rules, generated from finance_tracker/schema.py and
+     categorize.py by scripts/generate_dashboard_rules.py. Hand-maintaining a
+     second copy of these tables let the dashboard and the CLI drift 21
+     keywords apart, so they are no longer written twice. -->
+<script src="rules.js"></script>
 <script>
 // ---------------------------------------------------------------------
 // Schema (kept in sync with finance_tracker/schema.py)
 // ---------------------------------------------------------------------
-const COLUMNS = ["transaction_id","Date","Type","Category","Sub-category","Method","Amount (€)","Notes","Month","Year","Source File"];
-const TYPE_INCOME = "Income";
-const TYPE_EXPENSE = "Expense";
-const SAVINGS_CATEGORY = "Poupança/Investimento";
-const EXPENSE_CATEGORIES = ["Necessário","Refeição","Lazer","Saúde","Geral","Poupança/Investimento","Comissões conta","Outros"];
-const INCOME_CATEGORIES = ["Salário","Salário_alim","Dinheiro","Outro"];
-// Payment methods (the rail money moved over) — deliberately separate from
-// Category. MBWay and Transferência are never a Category; they only ever
-// appear here, in Method. See the categorization block below.
-const UNSPECIFIED_METHOD = "Não especificado"; // historical rows with no recorded payment method
-const METHODS = ["Cartão","MBWay","Transferência","Débito Direto","Cartão Alimentação","Dinheiro","Levantamento",UNSPECIFIED_METHOD];
-const MEAL_CARD_METHOD = "Cartão Alimentação";
+// Taxonomy, categorization rules and the sub-category -> category map all
+// come from dashboard/rules.js, generated from the Python source of truth.
+// See scripts/generate_dashboard_rules.py.
 const SERIES = ["--series-1","--series-2","--series-3","--series-4","--series-5","--series-6","--series-7","--series-8"];
 
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -394,26 +862,25 @@ function colorFor(list, category) {
 // Categorization (kept in sync with finance_tracker/categorize.py)
 //
 // Two independent steps, deliberately kept separate:
-// 1. Category/Sub-category comes only from purpose/merchant keywords
-//    (PURPOSE_INCOME_RULES / PURPOSE_EXPENSE_RULES below) — mbway and
-//    "transferência" are NOT purpose signals and never appear in this table.
+// 1. Category/Sub-category comes only from purpose/merchant patterns
+//    (PURPOSE_INCOME_RULES / PURPOSE_EXPENSE_RULES in rules.js) — mbway and
+//    "transferência" are NOT purpose signals and never appear in them.
 // 2. Method (the payment rail) is detected independently and can override
 //    whatever a purpose rule suggested: "mbway" anywhere in the description
 //    always means Method=MBWay, regardless of what it's for.
 //
 // This matters because a rail keyword and a purpose keyword can both appear
 // in the same description — e.g. "Mbway - Cinemas" — and both must be
-// honored: Category=Lazer/Cinema *and* Method=MBWay. Treating MBWay as a
-// category (an earlier version of this file did) meant the rail always won
-// and silently swallowed the purpose signal.
+// honored: Category=Lazer/Cinema-Espetáculos *and* Method=MBWay. Treating
+// MBWay as a category (an earlier version of this file did) meant the rail
+// always won and silently swallowed the purpose signal.
 //
-// When no purpose keyword matches, the transaction falls back to Category
-// "Outros"/"Outro". If the detected Method is MBWay or Transferência (i.e.
-// this looks like "Trf. MB WAY para <name>" with truly no purpose signal),
-// the counterparty's name is kept as the Sub-category instead of a flat
-// "Diversos" — still useful for spending analysis. This deliberately does
-// NOT apply to the historical seed data, where the user manually looked up
-// each payment's real purpose — that's preserved as-is.
+// Every result is a pair that exists in TAXONOMY. When nothing matches, the
+// answer is an honest "don't know" — Outros / Por Classificar, which is what
+// the Needs Review queue is built from — or, for a transfer with a named
+// counterparty, Outros / Transferências Pessoais. The name itself is NOT used
+// as a sub-category: the store accumulated 71 of those, which is a phone book
+// rather than a taxonomy. It stays in Notes, where the queue still shows it.
 // ---------------------------------------------------------------------
 const MBWAY_NAME_RE = /mb\s*way\s+(?:para|de)\s+(.+)$/i;
 const TRANSFER_NAME_RE = /transfer[êe]ncia\s+(?:para|de)\s+(.+)$/i;
@@ -423,7 +890,7 @@ function cleanName(raw) {
 }
 function extractCounterparty(description) {
   for (const re of [MBWAY_NAME_RE, TRANSFER_NAME_RE]) {
-    const m = re.exec(description);
+    const m = re.exec(String(description));
     if (m) {
       const name = cleanName(m[1]);
       if (name) return name;
@@ -432,119 +899,143 @@ function extractCounterparty(description) {
   return null;
 }
 
-// Each rule: [keywords, category, sub_category, suggestedMethod] — the
-// suggested method is only a default, see overlayMethod().
-const PURPOSE_INCOME_RULES = [
-  [["ordenado", "salário", "salario", "vencimento"], "Salário", "Salário", "Transferência"],
-  [["subsídio de alimentação", "subsidio de alimentacao", "cartão alimentação", "cartao alimentacao"], "Salário_alim", "Salário_alim", "Cartão Alimentação"],
-  [["reembolso", "estorno", "devolução", "devolucao"], "Outro", "Reembolso", "Transferência"],
-];
-const PURPOSE_EXPENSE_RULES = [
-  [["levantamento", "atm"], "Geral", "Levantamento", "Levantamento"],
+// Normalization — the exact mirror of categorize.normalize().
+//
+// Both engines strip diacritics before matching, which is what lets every
+// pattern be written unaccented once instead of twice. It also removes the
+// worst source of drift between the two engines: JavaScript's \b is defined
+// over [A-Za-z0-9_] only, so `\bcafé\b` never matched "no café" here while
+// matching fine in Python — silently breaking every accented keyword in the
+// browser, including the "transferência" rail detection.
+//
+// With accents gone, an ASCII-only boundary class is safe AND identical on
+// both sides, so compileRule() uses [a-z0-9_] and the patterns themselves are
+// restricted to ASCII-safe syntax (no \b, \w or \p{...}).
+const WORD_CHAR = "a-z0-9_";
+const ruleCache = new Map();
 
-  [["degiro", "trading212", "trading 212", "xtb", "etoro", "revolut trading", "interactive brokers"],
-    "Poupança/Investimento", "Ações/ETF", "Transferência"],
-  [["sgf", "gestora de fundo", "gestora fundo", "fundo de pensões", "fundo de pensoes",
-    "fundo pensões", "fundo pensoes", "ppr", "poupança reforma", "poupanca reforma"],
-    "Poupança/Investimento", "PPR/Fundo de Pensões", "Transferência"],
-  [["binance", "coinbase", "kraken", "criptomoeda", "cripto", "crypto"],
-    "Poupança/Investimento", "Criptomoeda", "Transferência"],
-
-  [["supermercado", "continente", "pingo doce", "lidl", "aldi", "mercadona", "minipreço", "minipreco", "auchan"],
-    "Refeição", "Supermercado", "Cartão"],
-  [["padaria", "pastelaria"], "Refeição", "Padaria", "Cartão"],
-  [["restaurante", "café", "cafe", "pizzaria", "pizz", "churrasco", "gaucho", "marisqueira", "cervejaria"],
-    "Refeição", "Restaurante", "Cartão"],
-
-  // Entertainment venues checked before the telecom block below: "NOS" is
-  // both a telecom brand and (via "NOS Cinemas") a real cinema chain name,
-  // so the more specific "cinema"/"bowling"/... match must win first.
-  [["amazon", "ebay", "aliexpress", "eneba", "shein", "wook"], "Lazer", "Compras Online", "Cartão"],
-  [["netflix", "spotify", "disney", "hbo", "twitch", "youtube premium", "amazon prime"],
-    "Lazer", "Subscrição", "Cartão"],
-  [["cinema", "cinemas"], "Lazer", "Cinema", "Cartão"],
-  [["bowling"], "Lazer", "Bowling", "Cartão"],
-  [["escape room"], "Lazer", "Escape Room", "Cartão"],
-  [["museu", "museus"], "Lazer", "Museu", "Cartão"],
-  [["flights", "booking", "ryanair", "tap", "easyjet", "hotel", "airbnb", "viagem"],
-    "Lazer", "Viagem", "Cartão"],
-  [["zara", "h&m", "primark", "decathlon", "sport zone"], "Lazer", "Roupa", "Cartão"],
-
-  [["combustível", "combustivel", "gasolina", "gasóleo", "gasoleo", "galp", "repsol", "cepsa", "prio", "bp"],
-    "Necessário", "Combustível", "Cartão"],
-  [["vodafone", "meo", "nowo", "nos", "telemóvel", "telemovel", "internet"],
-    "Necessário", "Telecomunicações", "Débito Direto"],
-  [["renda", "prestação casa", "prestacao casa", "crédito habitação", "credito habitacao", "condomínio", "condominio"],
-    "Necessário", "Habitação", "Débito Direto"],
-  [["seguros", "seguro", "fidelidade", "allianz", "tranquilidade", "ageas"],
-    "Necessário", "Seguros", "Débito Direto"],
-
-  [["farmácia", "farmacia", "wells"], "Saúde", "Farmácia", "Cartão"],
-  [["fisioterapia", "hospital", "clinica", "clínica", "dentista", "médico", "medico"],
-    "Saúde", "Consulta", "Cartão"],
-  [["ginásio", "ginasio", "fitness", "holmes place", "solinca"], "Saúde", "Ginásio", "Débito Direto"],
-
-  [["comissão", "comissao", "manutenção de conta", "manutencao de conta", "imposto de selo", "imposto selo"],
-    "Comissões conta", "Comissão Bancária", "Débito Direto"],
-];
-
-function wordMatch(text, keyword) {
-  const escaped = keyword.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${escaped}\\b`).test(text);
+function normalize(description) {
+  return String(description)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")   // combining marks left by NFD
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
-function matchPurpose(descLower, rules) {
-  for (const [keywords, category, subCategory, suggestedMethod] of rules) {
-    if (keywords.some(k => wordMatch(descLower, k))) return [category, subCategory, suggestedMethod];
+function compileRule(patterns) {
+  const key = patterns.join(" ");
+  let re = ruleCache.get(key);
+  if (!re) {
+    re = new RegExp(`(?<![${WORD_CHAR}])(?:${patterns.join("|")})(?![${WORD_CHAR}])`);
+    ruleCache.set(key, re);
+  }
+  return re;
+}
+
+// Override keywords are user-typed plain text, not regex, so they are escaped
+// and normalized before being compiled — a keyword saved as "Café Central"
+// still matches a description the bank wrote as "CAFE CENTRAL".
+function compileKeywords(keywords) {
+  return compileRule(keywords
+    .filter(k => String(k).trim())
+    .map(k => normalize(k).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+}
+
+function matchPurpose(normalized, rules) {
+  for (const [patterns, category, subCategory, suggestedMethod] of rules) {
+    if (compileRule(patterns).test(normalized)) return [category, subCategory, suggestedMethod];
   }
   return null;
 }
 
-function overlayMethod(descLower, suggestedMethod) {
-  if (wordMatch(descLower, "mbway") || wordMatch(descLower, "mb way")) return "MBWay";
-  if (wordMatch(descLower, "transferência") || wordMatch(descLower, "transferencia")) return "Transferência";
+const RAIL_MBWAY = compileRule(["mbway", "mb way"]);
+const RAIL_TRANSFER = compileRule(["transferencia", "transferencias", "trf", "trf imed"]);
+const RAIL_MEAL_CARD = compileRule(["cartao alimentacao", "coverflex", "edenred"]);
+const GATEWAY_RE = compileRule(GATEWAY_PATTERNS);
+
+function overlayMethod(normalized, suggestedMethod) {
+  if (RAIL_MEAL_CARD.test(normalized)) return MEAL_CARD_METHOD;
+  if (RAIL_MBWAY.test(normalized)) return "MBWay";
+  if (RAIL_TRANSFER.test(normalized)) return "Transferência";
   return suggestedMethod;
 }
 
 // ---------------------------------------------------------------------
-// User-taught overrides (see finance_tracker/overrides.py) — checked before
-// the purpose rules above, fully explicit (not subject to the method-overlay
-// step: a saved override's category/sub/method are exactly what the user
-// chose). Only ever offered for "Outros"/"Outro" rows whose Method is NOT
-// MBWay/Transferência — see the review panel below for why.
+// User-taught overrides (see finance_tracker/overrides.py). Two kinds, with
+// deliberately different strength — full precedence:
+//
+//   0. Payment gateways — refuse to guess; straight to the review queue.
+//   1. Merchant overrides (the default) — ahead of the rule tables, fully
+//      explicit for category and sub-category (but not the rail, which the
+//      description observes).
+//   2. Purpose rules — the tables in rules.js.
+//   3. Peer overrides ("peer": true) — opt-in, consulted only in the fallback
+//      path and only for a transfer rail. They set Category/Sub-category but
+//      never Method, and being last means they can never swallow a real
+//      purpose signal: "Mbway - Cinemas" stays Lazer/Cinema-Espetáculos even
+//      if that counterparty has a peer rule.
+//   4. Outros / Por Classificar, or Transferências Pessoais for a transfer.
 // ---------------------------------------------------------------------
 let overrides = [];
 
-function matchOverride(descLower, txnType) {
+function matchOverride(normalized, txnType, peer) {
   for (const o of overrides) {
+    if (Boolean(o.peer) !== Boolean(peer)) continue;
     if (o.type !== txnType && o.type !== "both") continue;
-    if (o.keywords.some(k => wordMatch(descLower, k))) return [o.category, o.sub_category, o.method];
+    const keywords = (o.keywords || []).filter(k => String(k).trim());
+    if (keywords.length && compileKeywords(keywords).test(normalized)) {
+      return [o.category, o.sub_category, o.method];
+    }
   }
   return null;
 }
 
 function categorize(description, amount) {
-  const descLower = String(description).toLowerCase();
+  const normalized = normalize(description);
   const isIncome = amount > 0;
   const txnType = isIncome ? "income" : "expense";
+  const defaultRail = isIncome ? "Transferência" : "Cartão";
 
-  const overrideHit = matchOverride(descLower, txnType);
-  if (overrideHit) return overrideHit;
+  // 1. Payment gateways (Nuvei, Eupago, Stripe...) resell other merchants, so
+  // the description names the processor and never what was bought. Guessing a
+  // category from one would be inventing data — straight to the review queue.
+  if (GATEWAY_RE.test(normalized)) {
+    return [UNCLASSIFIED_CATEGORY, UNCLASSIFIED_SUB, overlayMethod(normalized, defaultRail)];
+  }
 
-  const purposeHit = matchPurpose(descLower, isIncome ? PURPOSE_INCOME_RULES : PURPOSE_EXPENSE_RULES);
+  // 2. The user's own corrections. They decide the purpose, never the rail —
+  // the gym costs the same whether you tapped a card or sent MBWay, and the
+  // description says which. Mirrors categorize.categorize_transaction.
+  const overrideHit = matchOverride(normalized, txnType, false);
+  if (overrideHit) {
+    const [oCategory, oSub, oMethod] = overrideHit;
+    return [oCategory, oSub, overlayMethod(normalized, oMethod || defaultRail)];
+  }
+
+  // 3. Built-in rules.
+  const purposeHit = matchPurpose(normalized, isIncome ? PURPOSE_INCOME_RULES : PURPOSE_EXPENSE_RULES);
   if (purposeHit) {
     const [category, subCategory, suggestedMethod] = purposeHit;
-    return [category, subCategory, overlayMethod(descLower, suggestedMethod)];
+    return [category, subCategory, overlayMethod(normalized, suggestedMethod)];
   }
 
-  const fallbackCategory = isIncome ? "Outro" : "Outros";
-  const method = overlayMethod(descLower, isIncome ? "Transferência" : "Cartão");
-  let subCategory = "Diversos";
+  // 4. Fallback. A transfer to or from a named person with no purpose signal
+  // is a real, known fact — it just isn't a spending category, so it gets the
+  // taxonomy's bucket for exactly that rather than the review queue.
+  const method = overlayMethod(normalized, defaultRail);
   if (method === "MBWay" || method === "Transferência") {
     const name = extractCounterparty(description);
-    if (name) subCategory = name;
+    // Peer rules are matched against the counterparty name where we could
+    // extract one, so a rule learns "Ana Silva" rather than the boilerplate
+    // around her. The rail stays as detected: the user taught us what this
+    // person's money is for, not how it travelled.
+    const peerHit = matchOverride(normalize(name || description), txnType, true);
+    if (peerHit) return [peerHit[0], peerHit[1], method];
+    if (isIncome) return ["Transferências Pessoais", method === "MBWay" ? "MBWay" : "Transferência", method];
+    return [UNCLASSIFIED_CATEGORY, "Transferências Pessoais", method];
   }
-  return [fallbackCategory, subCategory, method];
+  return [UNCLASSIFIED_CATEGORY, UNCLASSIFIED_SUB, method];
 }
 
 // ---------------------------------------------------------------------
@@ -690,6 +1181,10 @@ function rawRowsToTransactions(rows, sourceFileName) {
       Method: method,
       "Amount (€)": Math.round(Math.abs(amount) * 100) / 100,
       Notes: description,
+      // Filled in only by a manual review — a freshly parsed bank row has
+      // none yet. applyReviewsToStore() puts any saved one back on arrival.
+      [REVIEW_NOTE]: "",
+      [REVIEWED_AT]: "",
       Month: month,
       Year: year,
       "Source File": sourceFileName,
@@ -705,6 +1200,39 @@ let store = [];               // array of transaction objects (full history)
 let pendingAdded = 0, pendingDuplicate = 0;
 let overridesDirty = false;   // true once an override was added this session (enables its download button)
 
+// Everything user-supplied — bank descriptions, review notes, category names
+// — goes through here before reaching innerHTML. A description containing
+// "<" would otherwise break the table apart, and a crafted one in an imported
+// file could inject markup into the page.
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+  ));
+}
+
+// Papa's dynamicTyping is right for the numeric columns and actively wrong
+// for transaction_id: a 16-hex-digit id that happens to be all digits would
+// be parsed as a float, losing precision and no longer matching the string
+// ids that mergeIntoStore(), the review panel and review_decisions.json all
+// compare against. Same for free text that looks numeric.
+const TEXT_COLUMNS = new Set(["transaction_id", "Notes", REVIEW_NOTE, REVIEWED_AT,
+                              "Sub-category", "Category", "Method", "Type", "Date", "Source File"]);
+
+function parseStoreCsv(text) {
+  const parsed = Papa.parse(text, {
+    header: true, skipEmptyLines: true,
+    dynamicTyping: header => !TEXT_COLUMNS.has(header),
+  });
+  // Older stores predate the review columns; normalize so every row has the
+  // full shape and nothing downstream has to test for undefined.
+  return parsed.data.map(r => ({
+    ...r,
+    transaction_id: String(r.transaction_id ?? ""),
+    [REVIEW_NOTE]: r[REVIEW_NOTE] ?? "",
+    [REVIEWED_AT]: r[REVIEWED_AT] ?? "",
+  }));
+}
+
 function toCsv(rows) {
   return Papa.unparse(rows, { columns: COLUMNS });
 }
@@ -713,20 +1241,202 @@ function overridesToCsvSafeJson() {
   return JSON.stringify(overrides, null, 2) + "\n";
 }
 
-// Re-run categorization on rows still sitting in the generic fallback
-// (Outros/Outro) using the current overrides — so a rule taught in the
-// Needs Review panel immediately clears every other matching row, not just
-// the one you just fixed.
+// ---------------------------------------------------------------------
+// Review memory (mirrors finance_tracker/reviews.py)
+//
+// A review decision — the category you settled on, and the note explaining
+// what you found out — is real work, and it used to live in exactly one
+// place: the row you edited. Forget to click "Download updated
+// transactions.csv" and it was gone; rebuild the store from raw exports and
+// it was gone regardless, because bank exports have never heard of your
+// categories.
+//
+// So decisions are kept separately, keyed by transaction_id (a hash of date +
+// description + amount, so it's stable across rebuilds), in three places at
+// once: localStorage (survives closing the tab, needs no button press),
+// data/review_decisions.json (survives clearing the browser, shared with the
+// Python side), and the store's own Review Note / Reviewed At columns.
+// ---------------------------------------------------------------------
+const REVIEWS_STORAGE_KEY = "personal_finances.review_decisions.v1";
+let reviewDecisions = {};     // transaction_id -> decision
+let reviewsDirty = false;
+
+function loadReviewsFromLocalStorage() {
+  try {
+    const raw = window.localStorage.getItem(REVIEWS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};   // private-browsing / storage disabled: the JSON file still works
+  }
+}
+
+// ---------------------------------------------------------------------
+// Saving to data/ through the local server.
+//
+// The dashboard is a static page, so for a long time the only durable copy of
+// a review was localStorage plus a download button you had to remember. That
+// is worse than it sounds: localStorage is scoped to the *origin*, and
+// serve_dashboard.py walks up from port 8792 when it's busy — so one launch
+// landing on :8793 shows an empty review history, and the work looks lost.
+//
+// serve_dashboard.py now accepts PUT for the three files the dashboard owns,
+// so the folder is the source of truth and the browser is just a view of it.
+// Under file:// (no server) this fails harmlessly and localStorage carries on
+// as the fallback it always was.
+let serverSaveAvailable = null;   // null = untested, then true/false
+
+async function saveToDataFolder(filename, body, contentType) {
+  if (serverSaveAvailable === false) return false;
+  try {
+    const res = await fetch(`../data/${filename}`, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body,
+    });
+    serverSaveAvailable = res.ok;
+    return res.ok;
+  } catch (e) {
+    serverSaveAvailable = false;   // file:// origin, or the server is gone
+    return false;
+  }
+}
+
+// Ids the user has deliberately un-reviewed (via undo). The server merges
+// what we send with what is on disk, so without an explicit tombstone an
+// undone review would be restored from the file on the very next save.
+let deletedDecisionIds = new Set();
+
+function forgetDecision(transactionId) {
+  delete reviewDecisions[transactionId];
+  deletedDecisionIds.add(String(transactionId));
+}
+
+function saveReviewsToDataFolder() {
+  const payload = { ...reviewDecisions };
+  if (deletedDecisionIds.size) payload.__deleted = [...deletedDecisionIds];
+  return saveToDataFolder("review_decisions.json",
+                          JSON.stringify(payload, null, 2) + "\n",
+                          "application/json")
+    .then(ok => { if (ok) deletedDecisionIds.clear(); return ok; });
+}
+
+function saveOverridesToDataFolder() {
+  return saveToDataFolder("category_overrides.json",
+                          JSON.stringify(overrides, null, 2) + "\n",
+                          "application/json");
+}
+
+function persistReviewsToLocalStorage() {
+  try {
+    window.localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviewDecisions));
+  } catch (e) {
+    setStatus("Couldn't save review memory to this browser's storage — click " +
+              "\"Download review_decisions.json\" to keep it.", true);
+  }
+}
+
+function recordReviewDecision(row, reviewNote) {
+  reviewDecisions[row.transaction_id] = {
+    category: row.Category,
+    sub_category: row["Sub-category"],
+    method: row.Method,
+    review_note: reviewNote || "",
+    reviewed_at: row[REVIEWED_AT],
+    notes: row.Notes || "",
+  };
+  reviewsDirty = true;
+  persistReviewsToLocalStorage();
+  saveReviewsToDataFolder();
+  document.getElementById("btn-download-reviews").disabled = false;
+}
+
+// Re-apply saved decisions onto whatever is currently loaded. Runs after every
+// load and every ingest, so a transaction that comes back from a re-import
+// arrives already reviewed instead of landing back in the queue.
+function applyReviewsToStore() {
+  let applied = 0;
+  let unplaceable = 0;
+  for (const row of store) {
+    const saved = reviewDecisions[row.transaction_id];
+    if (!saved) continue;
+
+    // Map the saved pair onto today's taxonomy before writing it. A decision
+    // nobody can place keeps its note and timestamp — that is the research the
+    // person actually did — but not its category, which would otherwise put a
+    // retired pair straight back into the store. Mirrors reviews.apply_reviews.
+    const decision = { ...saved };
+    const placed = saved.category ? resolvePair(row.Type, saved.category, saved.sub_category) : null;
+    if (placed) {
+      [decision.category, decision.sub_category] = placed;
+    } else {
+      if (saved.category) unplaceable++;
+      delete decision.category;
+      delete decision.sub_category;
+    }
+
+    let changed = false;
+    const fields = [["category", "Category"], ["sub_category", "Sub-category"],
+                    ["method", "Method"], ["review_note", REVIEW_NOTE],
+                    ["reviewed_at", REVIEWED_AT]];
+    for (const [key, column] of fields) {
+      const value = decision[key];
+      if (value === undefined || value === null || value === "") continue;
+      if (String(row[column] ?? "") !== String(value)) { row[column] = value; changed = true; }
+    }
+    if (changed) applied++;
+  }
+  if (unplaceable) {
+    console.warn(`${unplaceable} saved review decision(s) name a Category/Sub-category no longer ` +
+                 `in the taxonomy — notes restored, categories not.`);
+  }
+  return applied;
+}
+
+// A store loaded from disk may already carry reviews in its columns that this
+// browser has never seen (reviewed on another machine, or by the CLI). Harvest
+// them so they're in the durable memory too, rather than only in the CSV.
+function harvestReviewsFromStore() {
+  let harvested = 0;
+  for (const row of store) {
+    if (!row[REVIEWED_AT] || reviewDecisions[row.transaction_id]) continue;
+    reviewDecisions[row.transaction_id] = {
+      category: row.Category,
+      sub_category: row["Sub-category"],
+      method: row.Method,
+      review_note: row[REVIEW_NOTE] || "",
+      reviewed_at: row[REVIEWED_AT],
+      notes: row.Notes || "",
+    };
+    harvested++;
+  }
+  if (harvested) {
+    persistReviewsToLocalStorage();
+    saveReviewsToDataFolder();
+    document.getElementById("btn-download-reviews").disabled = false;
+  }
+  return harvested;
+}
+
+// Re-runs the FULL categorizer (overrides + built-in rules) over rows still
+// awaiting an answer, so knowledge added since the last import reaches the
+// transactions already loaded — a rule taught in the Needs Review panel clears
+// every other matching row, not just the one you fixed. It used to bail out
+// when the overrides list was empty, which meant a new rule in categorize.py
+// silently did nothing for existing rows unless you happened to also have an
+// override saved: the re-categorization was riding on an unrelated condition.
 function applyOverridesToStore() {
-  if (!overrides.length) return 0;
   let changed = 0;
   for (const r of store) {
-    const isFallback = (r.Type === TYPE_INCOME && r.Category === "Outro") ||
-                        (r.Type === TYPE_EXPENSE && r.Category === "Outros");
-    if (!isFallback) continue;
+    // A row the user reviewed by hand is settled — a rule that also happens to
+    // match it doesn't get to overrule the human answer.
+    if (r[REVIEWED_AT]) continue;
+    // Only the review queue itself. Outros/Levantamento and
+    // Outros/Transferências Pessoais share the category but are settled facts,
+    // and re-deriving them every load would churn them for nothing.
+    if (!isUnclassified(r)) continue;
     const signedAmount = r.Type === TYPE_INCOME ? Number(r["Amount (€)"]) : -Number(r["Amount (€)"]);
     const [cat, sub, method] = categorize(r.Notes, signedAmount);
-    if (cat !== r.Category) {
+    if (cat !== r.Category || sub !== r["Sub-category"]) {
       r.Category = cat;
       r["Sub-category"] = sub;
       r.Method = method;
@@ -748,10 +1458,19 @@ function mergeIntoStore(newRows) {
   return { added, dup };
 }
 
-function setStatus(msg, warn) {
+function setStatus(msg, warn, undo) {
   const el = document.getElementById("status-line");
   el.textContent = msg;
   el.className = warn ? "warn" : "";
+  // A save that rewrote ten rows needs a way back that doesn't involve
+  // reloading and losing everything else done this session.
+  if (undo) {
+    const button = document.createElement("button");
+    button.className = "undo";
+    button.textContent = undo.label || "Undo";
+    button.addEventListener("click", undo.action);
+    el.appendChild(button);
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -763,41 +1482,143 @@ async function tryAutoLoad() {
   try {
     const res = await fetch("../data/transactions.csv");
     if (!res.ok) throw new Error("not found");
-    const text = await res.text();
-    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true });
-    store = parsed.data;
+    store = parseStoreCsv(await res.text());
     setStatus(`Loaded data/transactions.csv automatically — ${store.length} transactions.`);
     onStoreLoaded();
   } catch (e) {
-    setStatus("Couldn't auto-load data/transactions.csv (expected if you opened this file directly — browsers block reading local files without a server). Use \"Load transactions.csv\" below.", true);
+    setStatus("Couldn't auto-load data/transactions.csv (expected if you opened this file directly — browsers block reading local files without a server). Use \"Load transactions.csv\" below, or launch via the \"Finance Dashboard\" desktop shortcut.", true);
+  }
+}
+
+// Rules you teach are persisted the same way review decisions are: to
+// localStorage the instant you save them, and merged on top of whatever is in
+// data/category_overrides.json on the next load.
+//
+// Without this, a rule taught in the browser lived only in memory and in a
+// download button — reload the page before pressing it and the rule was gone,
+// while the review that created it survived. The two halves of the same click
+// had different durability, which is exactly the kind of asymmetry that loses
+// work quietly.
+const OVERRIDES_STORAGE_KEY = "personal_finances.category_overrides.v1";
+
+function overrideKey(o) {
+  return JSON.stringify([[...(o.keywords || [])].map(k => String(k).toLowerCase()).sort(),
+                         o.type, Boolean(o.peer)]);
+}
+
+function loadOverridesFromLocalStorage() {
+  try {
+    const raw = window.localStorage.getItem(OVERRIDES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function persistOverridesToLocalStorage() {
+  try {
+    window.localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(overrides));
+  } catch (e) {
+    setStatus("Couldn't save your rules to this browser's storage — click " +
+              "\"Download updated category_overrides.json\" to keep them.", true);
   }
 }
 
 async function tryAutoLoadOverrides() {
+  let fromFile = [];
   try {
     const res = await fetch("../data/category_overrides.json");
     if (!res.ok) throw new Error("not found");
-    overrides = await res.json();
-  } catch (e) {
-    overrides = [];
+    const loaded = await res.json();
+    fromFile = Array.isArray(loaded) ? loaded : [];
+  } catch (e) { /* no file yet — whatever this browser remembers still applies */ }
+
+  // The file is the shared baseline; anything this browser has taught since is
+  // layered on top, replacing a file entry with the same keywords/type/kind
+  // rather than stacking a shadowed duplicate behind it.
+  const merged = [...fromFile];
+  const seen = new Map(merged.map((o, i) => [overrideKey(o), i]));
+  let unsaved = 0;
+  for (const local of loadOverridesFromLocalStorage()) {
+    const key = overrideKey(local);
+    if (seen.has(key)) { merged[seen.get(key)] = local; }
+    else { seen.set(key, merged.length); merged.push(local); unsaved++; }
+  }
+  overrides = merged;
+
+  if (unsaved) {
+    overridesDirty = true;
+    document.getElementById("btn-download-overrides").disabled = false;
+    setStatus(`${unsaved} rule(s) you taught are saved in this browser but not yet in ` +
+              `data/category_overrides.json — click "Download updated category_overrides.json" ` +
+              `and save it there so the CLI sees them too.`, true);
   }
   if (store.length && applyOverridesToStore() > 0) renderAll();
+}
+
+// The shared file and localStorage are now BOTH written on every save, so
+// neither is automatically the fresher one — they are merged per decision by
+// `reviewed_at`, newest wins.
+//
+// localStorage used to win outright, on the reasoning that the file only
+// changed when you clicked download. That stopped being true once the server
+// accepted writes, and it was actively harmful: localStorage is scoped to the
+// origin, so a launch that landed on port 8793 instead of 8792 had a bucket
+// that knew nothing about the work done in the other one, and let it mask the
+// file's newer answers.
+function mergeDecisions(fromFile, fromLocal) {
+  const merged = { ...fromFile };
+  for (const [id, local] of Object.entries(fromLocal || {})) {
+    const existing = merged[id];
+    if (!existing || String(local.reviewed_at || "") >= String(existing.reviewed_at || "")) {
+      merged[id] = local;
+    }
+  }
+  return merged;
+}
+
+async function tryAutoLoadReviews() {
+  const fromLocal = loadReviewsFromLocalStorage();
+  reviewDecisions = fromLocal;
+  try {
+    const res = await fetch("../data/review_decisions.json");
+    if (!res.ok) throw new Error("not found");
+    const fromFile = await res.json();
+    if (fromFile && typeof fromFile === "object") {
+      delete fromFile.__deleted;
+      reviewDecisions = mergeDecisions(fromFile, fromLocal);
+    }
+  } catch (e) { /* no shared file yet — localStorage alone is fine */ }
+  if (Object.keys(reviewDecisions).length) {
+    document.getElementById("btn-download-reviews").disabled = false;
+  }
+  if (store.length && applyReviewsToStore() > 0) renderAll();
 }
 
 function onStoreLoaded() {
   document.getElementById("btn-monthly").classList.remove("disabled");
   document.getElementById("btn-download-enc").disabled = false;
   document.getElementById("btn-clear").disabled = false;
+  harvestReviewsFromStore();
+  // Reviews last: a manual decision is the user's own answer and must not be
+  // second-guessed by a keyword rule that happens to also match the row.
   applyOverridesToStore();
+  applyReviewsToStore();
   renderAll();
 }
 
 document.getElementById("btn-clear").addEventListener("click", () => {
   if (!store.length) { setStatus("Nothing to clear — the store is already empty."); return; }
+  const reviewCount = Object.keys(reviewDecisions).length;
   const ok = window.confirm(
     `This clears all ${store.length} loaded transactions from this browser session.\n\n` +
     `Nothing on disk is touched unless you click a Download button afterward — reload the ` +
     `page (or load transactions.csv again) to get today's data back if you change your mind.\n\n` +
+    (reviewCount
+      ? `Your ${reviewCount} saved review decision(s) are KEPT and re-applied automatically when ` +
+        `you rebuild — that's what review memory is for.\n\n`
+      : "") +
     `Continue?`
   );
   if (!ok) return;
@@ -805,8 +1626,10 @@ document.getElementById("btn-clear").addEventListener("click", () => {
   store = [];
   pendingAdded = 0; pendingDuplicate = 0;
   document.getElementById("btn-download").disabled = true;
+  document.getElementById("btn-download-enc").disabled = true;
+  document.getElementById("btn-clear").disabled = true;
   document.getElementById("btn-monthly").classList.remove("disabled");
-  setStatus("Cleared. Upload monthly files below to rebuild the store from scratch — duplicates within and across the files you add are still detected automatically.");
+  setStatus("Cleared. Upload monthly files below to rebuild the store from scratch — duplicates within and across the files you add are still detected automatically, and saved review decisions are re-applied as the rows come back.");
   renderAll();
 });
 
@@ -815,8 +1638,7 @@ document.getElementById("file-store").addEventListener("change", (e) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    const parsed = Papa.parse(reader.result, { header: true, skipEmptyLines: true, dynamicTyping: true });
-    store = parsed.data;
+    store = parseStoreCsv(reader.result);
     pendingAdded = 0; pendingDuplicate = 0;
     document.getElementById("btn-download").disabled = true;
     setStatus(`Loaded ${file.name} — ${store.length} transactions.`);
@@ -834,9 +1656,7 @@ document.getElementById("file-store-enc").addEventListener("change", (e) => {
   reader.onload = async () => {
     try {
       const plaintextBytes = await decryptBlob(new Uint8Array(reader.result), passphrase);
-      const text = new TextDecoder().decode(plaintextBytes);
-      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true });
-      store = parsed.data;
+      store = parseStoreCsv(new TextDecoder().decode(plaintextBytes));
       pendingAdded = 0; pendingDuplicate = 0;
       document.getElementById("btn-download").disabled = true;
       setStatus(`Decrypted and loaded ${file.name} — ${store.length} transactions.`);
@@ -892,9 +1712,14 @@ document.getElementById("file-monthly").addEventListener("change", async (e) => 
 
   pendingAdded += batchAdded; pendingDuplicate += batchDuplicate;
   document.getElementById("btn-download").disabled = false;
+  // A row that was reviewed before (in an earlier store, on another machine,
+  // or in a rebuild) comes back already answered instead of re-entering the
+  // review queue — the whole point of keeping decisions outside the store.
+  const restored = applyReviewsToStore();
   setStatus(
     `${files.length} file(s): ${perFile.join("; ")}. ` +
-    `Session total: +${pendingAdded} added / ${pendingDuplicate} duplicates skipped.`
+    `Session total: +${pendingAdded} added / ${pendingDuplicate} duplicates skipped.` +
+    (restored ? ` ${restored} previously-reviewed transaction(s) restored from review memory.` : "")
   );
   renderAll();
   e.target.value = ""; // allow re-selecting the same file(s) again later
@@ -936,8 +1761,32 @@ document.getElementById("btn-download").addEventListener("click", () => {
 document.getElementById("year-filter").addEventListener("change", renderAll);
 document.getElementById("exclude-meal-card").addEventListener("change", renderAll);
 document.getElementById("search-box").addEventListener("input", renderTable);
-document.getElementById("type-filter").addEventListener("change", renderTable);
-document.getElementById("cat-filter").addEventListener("change", renderTable);
+document.getElementById("type-filter").addEventListener("change", () => { refreshCategoryFilters(); renderTable(); });
+// Changing the category re-stocks the sub-category list, so the two can never
+// disagree — picking "Alimentação" then "Ginásio" is not a combination the
+// filter should be able to express and then return nothing for.
+document.getElementById("cat-filter").addEventListener("change", () => { refreshSubcategoryFilter(); renderTable(); });
+document.getElementById("subcat-filter").addEventListener("change", renderTable);
+document.getElementById("review-filter").addEventListener("change", renderTable);
+// One click from "I want to audit what the rules decided on their own" to a
+// table showing exactly that — the state that is otherwise invisible, because
+// an unchecked auto-classification looks identical to a reviewed one.
+document.getElementById("btn-audit-auto").addEventListener("click", () => {
+  document.getElementById("review-filter").value = "auto";
+  document.getElementById("search-box").value = "";
+  renderTable();
+  document.getElementById("h-transactions").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+document.getElementById("btn-clear-filters").addEventListener("click", () => {
+  document.getElementById("search-box").value = "";
+  document.getElementById("type-filter").value = "";
+  document.getElementById("cat-filter").value = "";
+  document.getElementById("review-filter").value = "";
+  refreshSubcategoryFilter();
+  renderTable();
+});
+document.getElementById("analysis-month").addEventListener("change", () => renderAnalysis(analysisRows()));
+document.getElementById("analysis-baseline").addEventListener("change", () => renderAnalysis(analysisRows()));
 
 // ---------------------------------------------------------------------
 // Derived data + rendering
@@ -946,20 +1795,46 @@ let charts = {};
 
 function filteredRows() {
   const y = document.getElementById("year-filter").value;
-  const excludeMealCard = document.getElementById("exclude-meal-card").checked;
-  let rows = store;
+  let rows = analysisRows();
   if (y && y !== "all") rows = rows.filter(r => String(r.Year) === y);
-  if (excludeMealCard) rows = rows.filter(r => r.Method !== MEAL_CARD_METHOD);
   return rows;
 }
 
+// The Monthly analysis card honours the meal-card toggle but deliberately
+// ignores the year filter: it has its own month selector, and comparing
+// January against "the previous 3 months" has to be able to reach back across
+// the year boundary. Filtering to one year would silently leave January with
+// no baseline at all.
+function analysisRows() {
+  const excludeMealCard = document.getElementById("exclude-meal-card").checked;
+  return excludeMealCard ? store.filter(r => r.Method !== MEAL_CARD_METHOD) : store;
+}
+
+// Local-time helpers. `new Date().toISOString()` is UTC, so west of Greenwich
+// (and in Lisbon during summer time) it can name yesterday — which would date
+// a review, or default a manual entry, to the wrong day.
+function localDateIso(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function localIsoTimestamp(d = new Date()) {
+  return `${localDateIso(d)}T${String(d.getHours()).padStart(2,"0")}:` +
+         `${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+}
+
 function monthKey(r) { return `${r.Year}-${String(r.Month).padStart(2,"0")}`; }
+
+// Year arrives as a number from parseStoreCsv (Papa's dynamicTyping) and from
+// every row the dashboard builds itself — but grouping on it directly means a
+// single string-typed "2026" would open a second 2026 bucket and split the
+// year's totals across two rows, each looking plausible. Coercing costs
+// nothing and removes the possibility.
+function yearOf(r) { return Number(r.year ?? r.Year); }
 
 function computeMonthlyOverview(rows) {
   const byMonth = new Map();
   for (const r of rows) {
     const k = monthKey(r);
-    if (!byMonth.has(k)) byMonth.set(k, { key: k, year: r.Year, month: r.Month, income: 0, expense: 0, savings: 0 });
+    if (!byMonth.has(k)) byMonth.set(k, { key: k, year: yearOf(r), month: Number(r.Month), income: 0, expense: 0, savings: 0 });
     const bucket = byMonth.get(k);
     const amt = Number(r["Amount (€)"]) || 0;
     if (r.Type === TYPE_INCOME) bucket.income += amt;
@@ -995,6 +1870,276 @@ function computeMethodBreakdown(rows, type) {
 
 function fmtEur(n) {
   return new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+}
+function fmtEur2(n) {
+  return new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(n);
+}
+function fmtPct(n) {
+  return `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
+}
+
+// fmtPct signs the number because it formats *deltas* ("+12% vs last month").
+// A ratio is not a delta: "spent +68% of income" reads as an increase that
+// isn't there. Meters use this one.
+function fmtRatioPct(n) {
+  return `${n.toFixed(0)}%`;
+}
+
+// ---------------------------------------------------------------------
+// Monthly spending analytics (mirrors finance_tracker/overview.py)
+//
+// The charts above answer "what did this month total?". These answer the
+// questions you actually open a finance dashboard to ask: is this month
+// unusual, what drove it, what am I paying every month without noticing, and
+// — if the month is still running — where is it going to land.
+// ---------------------------------------------------------------------
+
+// Money that actually left, excluding transfers into savings/investments:
+// that money is still yours, it moved rather than being spent. Counting it as
+// spending makes every month you invested look like a blowout.
+function isSpending(r) {
+  return r.Type === TYPE_EXPENSE && r.Category !== SAVINGS_CATEGORY;
+}
+function sumAmount(rows) {
+  return rows.reduce((total, r) => total + (Number(r["Amount (€)"]) || 0), 0);
+}
+function monthLabel(key) {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1))
+    .toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+
+// Every month present in the data, oldest first. Deliberately derived from the
+// *unfiltered* store so the analysis card's baseline isn't silently truncated
+// by the year filter — comparing January against "the previous 3 months" has
+// to be able to reach back into the previous year.
+function allMonthKeys(rows) {
+  return [...new Set(rows.map(monthKey))].sort();
+}
+
+function monthRows(rows, key) {
+  return rows.filter(r => monthKey(r) === key);
+}
+
+// The trailing average deliberately excludes the month being judged: a month
+// compared against an average it is itself part of always looks closer to
+// normal than it really is.
+function baselineMonths(keys, selectedKey, lookback) {
+  const index = keys.indexOf(selectedKey);
+  if (index <= 0) return [];
+  return keys.slice(Math.max(0, index - lookback), index);
+}
+
+function computeMonthlyAnalysis(rows, selectedKey, lookback) {
+  const keys = allMonthKeys(rows);
+  const current = monthRows(rows, selectedKey);
+  const spending = sumAmount(current.filter(isSpending));
+  const income = sumAmount(current.filter(r => r.Type === TYPE_INCOME));
+  const savings = sumAmount(current.filter(r => r.Category === SAVINGS_CATEGORY));
+
+  const baselineKeys = baselineMonths(keys, selectedKey, lookback);
+  const baselineTotals = baselineKeys.map(k => sumAmount(monthRows(rows, k).filter(isSpending)));
+  const baseline = baselineTotals.length
+    ? baselineTotals.reduce((a, b) => a + b, 0) / baselineTotals.length : null;
+
+  const prevKey = keys[keys.indexOf(selectedKey) - 1];
+  const prev = prevKey ? sumAmount(monthRows(rows, prevKey).filter(isSpending)) : null;
+
+  const [year, month] = selectedKey.split("-").map(Number);
+  const totalDays = daysInMonth(year, month);
+  // Only a still-running month gets projected; for a finished one the money
+  // is already spent and "projected" would just restate the total.
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+  const elapsedDays = isCurrentMonth ? today.getDate() : totalDays;
+  const perDay = spending / Math.max(elapsedDays, 1);
+
+  return {
+    key: selectedKey, year, month, income, spending, savings,
+    net: income - spending,
+    savingsRate: income > 0 ? (income - spending) / income * 100 : null,
+    baseline, baselineKeys, prev, prevKey,
+    perDay, totalDays, elapsedDays, isCurrentMonth,
+    projected: isCurrentMonth ? perDay * totalDays : spending,
+    txCount: current.length,
+  };
+}
+
+function computeSubcategoryBreakdown(rows, limit) {
+  const bySub = new Map();
+  for (const r of rows.filter(isSpending)) {
+    const label = `${r.Category} / ${r["Sub-category"] || "—"}`;
+    const bucket = bySub.get(label) || { amount: 0, count: 0 };
+    bucket.amount += Number(r["Amount (€)"]) || 0;
+    bucket.count++;
+    bySub.set(label, bucket);
+  }
+  return [...bySub.entries()]
+    .map(([label, b]) => ({ label, ...b }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, limit);
+}
+
+// Cumulative spend by day-of-month: the selected month against the average
+// shape of the baseline months. Totals tell you a month was expensive after
+// it's over; this tells you while you can still do something about it.
+function computeSpendingPace(rows, analysis) {
+  const cumulative = (key, days) => {
+    const perDay = new Array(days).fill(0);
+    for (const r of monthRows(rows, key).filter(isSpending)) {
+      const day = Number(String(r.Date).slice(8, 10));
+      if (day >= 1 && day <= days) perDay[day - 1] += Number(r["Amount (€)"]) || 0;
+    }
+    let running = 0;
+    return perDay.map(v => (running += v));
+  };
+
+  const days = analysis.totalDays;
+  const currentSeries = cumulative(analysis.key, days);
+  // Stop the current month's line at today rather than drawing a flat tail
+  // that reads as "spending stopped" for days that haven't happened yet.
+  const truncated = currentSeries.map((v, i) => (i < analysis.elapsedDays ? v : null));
+
+  let baselineSeries = null;
+  if (analysis.baselineKeys.length) {
+    const perMonth = analysis.baselineKeys.map(k => {
+      const [y, m] = k.split("-").map(Number);
+      return cumulative(k, daysInMonth(y, m));
+    });
+    baselineSeries = Array.from({ length: days }, (_, dayIndex) => {
+      const values = perMonth.map(s => s[Math.min(dayIndex, s.length - 1)]);
+      return values.reduce((a, b) => a + b, 0) / values.length;
+    });
+  }
+  return { labels: Array.from({ length: days }, (_, i) => i + 1), current: truncated, baseline: baselineSeries };
+}
+
+// Spending per category per month — which category is *trending*, as opposed
+// to which was biggest once.
+function computeCategoryByMonth(rows) {
+  const keys = allMonthKeys(rows);
+  const categories = [...new Set(rows.filter(isSpending).map(r => r.Category))]
+    .sort((a, b) => EXPENSE_CATEGORIES.indexOf(a) - EXPENSE_CATEGORIES.indexOf(b));
+  const series = categories.map(category => ({
+    category,
+    values: keys.map(k => sumAmount(monthRows(rows, k).filter(r => isSpending(r) && r.Category === category))),
+  }));
+  return { keys, series };
+}
+
+// A charge counts as recurring when the same Category/Sub-category lands in at
+// least MIN_MONTHS distinct months for an amount that stays close to its own
+// median. Both halves matter: the median test is what separates Netflix at
+// €8.99 every month from a restaurant that's also monthly but never the same
+// price twice.
+const RECURRING_MIN_MONTHS = 3;
+const RECURRING_TOLERANCE = 0.15;
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function detectRecurring(rows) {
+  const groups = new Map();
+  for (const r of rows.filter(isSpending)) {
+    const label = `${r.Category} / ${r["Sub-category"] || "—"}`;
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(r);
+  }
+
+  const out = [];
+  for (const [label, group] of groups) {
+    const months = new Set(group.map(monthKey));
+    if (months.size < RECURRING_MIN_MONTHS) continue;
+    const amounts = group.map(r => Number(r["Amount (€)"]) || 0);
+    const typical = median(amounts);
+    if (typical <= 0) continue;
+    const consistent = amounts.filter(a => Math.abs(a - typical) <= typical * RECURRING_TOLERANCE).length;
+    if (consistent / amounts.length < 0.6) continue;
+    out.push({
+      label, typical, months: months.size,
+      lastSeen: group.map(r => String(r.Date)).sort().pop(),
+      annualized: typical * 12,
+    });
+  }
+  return out.sort((a, b) => b.annualized - a.annualized);
+}
+
+// Cheap, non-destructive consistency checks. These surface problems the charts
+// otherwise quietly average away — a category outside the taxonomy is counted
+// as ordinary spending, a future-dated row inflates a month that hasn't
+// happened, and a large unreviewed pile means the category totals are mostly
+// guesswork.
+function computeDataHealth(rows) {
+  const checks = [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  // The whole pair is checked, not just the category name. A row filed under
+  // "Geral / Gasoleo" when the taxonomy says "Gasóleo" looks fine in a
+  // category chart and splits the sub-category chart into two bars that never
+  // add up — which is how the store ended up with Gasoleo, Telemovel and PPR
+  // living alongside their properly-spelled twins.
+  const stray = new Map();
+  for (const r of rows) {
+    if (!isValidPair(r.Type, r.Category, r["Sub-category"])) {
+      const label = `${r.Category}/${r["Sub-category"]}`;
+      stray.set(label, (stray.get(label) || 0) + 1);
+    }
+  }
+  if (stray.size) {
+    const detail = [...stray.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([c, n]) => `${c} (${n})`).join(", ");
+    checks.push({ ok: false, text: `${stray.size} Category/Sub-category pair(s) outside the taxonomy: ${detail}.`,
+      detail: "A pair the taxonomy doesn't know splits a real spending line into two chart bars that never add up. " +
+              "Run scripts/recategorize.py, or re-file them from the Transactions table." });
+  } else {
+    checks.push({ ok: true, text: "Every Category/Sub-category pair matches the taxonomy." });
+  }
+
+  const future = rows.filter(r => String(r.Date) > today);
+  if (future.length) {
+    checks.push({ ok: false, text: `${future.length} transaction(s) dated in the future (latest ${future.map(r => String(r.Date)).sort().pop()}).`,
+      detail: "Usually a typo in a manual entry or a seeded row. They create months that haven't happened yet in every by-month chart." });
+  } else {
+    checks.push({ ok: true, text: "No future-dated transactions." });
+  }
+
+  // Only the review queue itself counts as uncategorized. Outros/Levantamento
+  // and Outros/Transferências Pessoais share the category but are settled
+  // answers — cash withdrawn, money sent to a named person — and counting them
+  // as unknowns would make the backlog look permanently unfixable.
+  const unreviewed = rows.filter(r => r.Type === TYPE_EXPENSE
+    && r.Category === UNCLASSIFIED_CATEGORY && r["Sub-category"] === UNCLASSIFIED_SUB);
+  const unreviewedTotal = sumAmount(unreviewed);
+  const expenseTotal = sumAmount(rows.filter(r => r.Type === TYPE_EXPENSE));
+  const share = expenseTotal > 0 ? unreviewedTotal / expenseTotal * 100 : 0;
+  if (unreviewed.length) {
+    checks.push({ ok: share < 15, text: `${unreviewed.length} expense(s) still uncategorized — ${fmtEur(unreviewedTotal)}, ${share.toFixed(0)}% of all expenses.`,
+      detail: share >= 15 ? "Above roughly 15%, the category breakdown is more guess than measurement. The Needs Review panel is the place to work this down." : "" });
+  } else {
+    checks.push({ ok: true, text: "Every expense has a specific category." });
+  }
+
+  const reviewed = rows.filter(r => r[REVIEWED_AT]);
+  const derived = reviewed.filter(isDerivedReview).length;
+  checks.push({ ok: true,
+    text: `${reviewed.length - derived} transaction(s) reviewed directly`
+        + (derived ? `, ${derived} auto-applied from a matching description` : "")
+        + `; ${Object.keys(reviewDecisions).length} decision(s) in review memory.`,
+    detail: [
+      derived ? "Auto-applied rows carry the category of an identical description but were not individually checked — they're marked \"auto\" in the table." : "",
+      reviewsDirty ? "Unsaved changes — download review_decisions.json to share them with the CLI." : "",
+    ].filter(Boolean).join(" ") });
+
+  const missingMethod = rows.filter(r => !r.Method || r.Method === UNSPECIFIED_METHOD).length;
+  if (missingMethod) {
+    checks.push({ ok: true, text: `${missingMethod} transaction(s) have no recorded payment method.`,
+      detail: "Expected for historical rows seeded from the Excel tracker; they show as \"Não especificado\" in the method charts." });
+  }
+  return checks;
 }
 
 function renderTiles(rows) {
@@ -1049,11 +2194,13 @@ function renderTrendChart(overview) {
     options: baseChartOptions(),
   });
 
-  document.getElementById("trend-table").innerHTML = `
-    <div class="scroll-table"><table>
-      <thead><tr><th>Month</th><th class="num">Income</th><th class="num">Expenses</th><th class="num">Net</th></tr></thead>
-      <tbody>${overview.map(o => `<tr><td>${o.key}</td><td class="num">${fmtEur(o.income)}</td><td class="num">${fmtEur(o.expense)}</td><td class="num">${fmtEur(o.income-o.expense)}</td></tr>`).join("")}</tbody>
-    </table></div>`;
+  renderDataTable("trend-table", ["Month", "Income", "Expenses", "Net"],
+    overview.map(o => [monthLabel(o.key), fmtEur2(o.income), fmtEur2(o.expense), fmtEur2(o.income - o.expense)]),
+    "Income and expenses per month");
+  const totalIncome = overview.reduce((s, o) => s + o.income, 0);
+  const totalExpense = overview.reduce((s, o) => s + o.expense, 0);
+  describeChart("chart-trend", `Income versus expenses across ${overview.length} month(s): `
+    + `${fmtEur(totalIncome)} in, ${fmtEur(totalExpense)} out.`);
 }
 
 function renderNetChart(overview) {
@@ -1072,6 +2219,11 @@ function renderNetChart(overview) {
     },
     options: baseChartOptions({ plugins: { legend: { display: false } }, scales: { y: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted") } }, x: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted") } } } }),
   });
+  const negatives = overview.filter(o => o.income - o.expense < 0).length;
+  describeChart("chart-net", `Net balance per month across ${overview.length} month(s); `
+    + `${negatives} month(s) ended negative.`);
+  renderDataTable("net-table", ["Month", "Net"],
+    overview.map(o => [monthLabel(o.key), fmtEur2(o.income - o.expense)]), "Net balance per month");
 }
 
 function renderCategoryChart(canvasId, chartKey, breakdown, palette) {
@@ -1094,39 +2246,624 @@ function renderCategoryChart(canvasId, chartKey, breakdown, palette) {
   });
 }
 
+// A chart is invisible to a screen reader and to anyone who can't distinguish
+// the series colours, so every chart on this page has a real table behind a
+// "View as table" disclosure carrying the same numbers.
+function renderDataTable(targetId, headers, rows, caption) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.innerHTML = `
+    <div class="scroll-table"><table>
+      ${caption ? `<caption class="sr-only">${esc(caption)}</caption>` : ""}
+      <thead><tr>${headers.map((h, i) =>
+        `<th scope="col"${i ? ' class="num"' : ""}>${esc(h)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(cells => `<tr>${cells.map((c, i) =>
+        `<td${i ? ' class="num"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table></div>`;
+}
+
+// Charts are decorative once the table exists, but a screen reader still
+// lands on the canvas — give it a one-line summary rather than nothing.
+function describeChart(canvasId, label) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", label);
+}
+
+function renderAnalysis(rows) {
+  const monthSel = document.getElementById("analysis-month");
+  const keys = allMonthKeys(rows);
+
+  const previous = monthSel.value;
+  monthSel.innerHTML = keys.slice().reverse()
+    .map(k => `<option value="${esc(k)}">${esc(monthLabel(k))}</option>`).join("");
+  if (keys.includes(previous)) {
+    monthSel.value = previous;
+  } else if (keys.length) {
+    // Default to the newest month that has actually happened. A single
+    // future-dated row (a typo in a manual entry, a seeded row) would
+    // otherwise open the card on a month with one transaction in it and no
+    // meaningful comparison — the Data health panel flags those separately.
+    const currentKey = localDateIso().slice(0, 7);
+    const past = keys.filter(k => k <= currentKey);
+    monthSel.value = (past.length ? past : keys)[(past.length ? past : keys).length - 1];
+  }
+
+  const statsEl = document.getElementById("analysis-stats");
+  const noteEl = document.getElementById("analysis-note");
+  if (!keys.length) {
+    statsEl.innerHTML = `<p style="color:var(--text-secondary);font-size:13px;margin:0;">
+      No transactions loaded yet — load the store or add a monthly file to see the analysis.</p>`;
+    noteEl.textContent = "";
+    document.getElementById("analysis-meters").innerHTML = "";
+    document.getElementById("recurring-body").innerHTML = "";
+    document.getElementById("recurring-note").textContent = "";
+    document.getElementById("biggest-body").innerHTML = "";
+    ["pacing", "catTrend", "topSub"].forEach(destroyChart);
+    return;
+  }
+
+  const lookback = Number(document.getElementById("analysis-baseline").value) || 3;
+  const analysis = computeMonthlyAnalysis(rows, monthSel.value, lookback);
+  renderHealthMeters(analysis);
+  renderAnalysisStats(analysis);
+  renderPacingChart(rows, analysis);
+  renderCategoryTrendChart(rows);
+  renderTopSubcategories(rows, analysis);
+  renderRecurring(rows);
+  renderBiggestExpenses(rows, analysis);
+}
+
+// ---------------------------------------------------------------------
+// Month health meters
+//
+// Two ratios against a limit — "how much of what I earned did I spend" and
+// "how much did I keep" — so the form is a meter, not a radial gauge and not
+// a one-bar bar chart. They are exact complements (spending% + liquidity% =
+// 100) and that is deliberate: the same fact read from the direction you
+// happen to care about, which is why each carries its own thresholds and its
+// own wording rather than sharing one bar.
+//
+// Three bands, not four. A fourth (status-serious, orange) measures ΔE 13.6
+// from the yellow in normal vision — below the 15 floor where two colours stop
+// being reliably distinguishable — so it was dropped on the measurement rather
+// than kept because it looked fine. The bands are the *reserved* status
+// colours, never a series colour, and each ships an icon and a word so the
+// colour is never the only carrier.
+// ---------------------------------------------------------------------
+const METER_BANDS = {
+  // Thresholds are read low-to-high and the first match wins.
+  spending: {
+    label: "Spent this month",
+    describe: "share of the month's income that went out again",
+    // Spending BELOW the threshold is better, so the scale runs good -> critical.
+    bands: [
+      { upTo: 70,       key: "good",     word: "Healthy",     icon: "\u2713" },
+      { upTo: 90,       key: "warning",  word: "Tight",       icon: "\u25B3" },
+      { upTo: Infinity, key: "critical", word: "Over budget", icon: "\u2715" },
+    ],
+    ticks: [70, 90],
+    scale: "Healthy under 70% · Tight 70–90% · Over budget above 90%",
+  },
+  liquidity: {
+    label: "Kept this month",
+    describe: "income minus spending, as a share of income",
+    // Higher is better, so the thresholds are expressed as floors.
+    bands: [
+      { upTo: 10,       key: "critical", word: "Nothing left", icon: "\u2715" },
+      { upTo: 30,       key: "warning",  word: "Thin",         icon: "\u25B3" },
+      { upTo: Infinity, key: "good",     word: "Comfortable",  icon: "\u2713" },
+    ],
+    ticks: [10, 30],
+    scale: "Comfortable above 30% · Thin 10–30% · Nothing left under 10%",
+  },
+};
+
+function meterBand(spec, pct) {
+  for (const b of spec.bands) if (pct <= b.upTo) return b;
+  return spec.bands[spec.bands.length - 1];
+}
+
+function renderMeter(spec, pct, detail) {
+  const band = meterBand(spec, pct);
+  // The fill is clamped for drawing only — the printed number stays truthful,
+  // so a month that spent 140% of its income says 140%, not a full bar at 100%.
+  const width = Math.max(0, Math.min(100, pct));
+  const ticks = spec.ticks
+    .map(t => `<span class="meter-tick" style="left:${t}%"></span>`).join("");
+  return `
+    <div class="meter" style="--meter-color: var(--status-${band.key})"
+         role="img" aria-label="${esc(spec.label)}: ${fmtRatioPct(pct)}, ${esc(band.word)}. ${esc(spec.scale)}">
+      <div class="meter-head">
+        <span class="meter-label">${esc(spec.label)}</span>
+        <span class="meter-value">${fmtRatioPct(pct)}</span>
+      </div>
+      <p class="meter-sub">${esc(detail)}</p>
+      <div class="meter-track" title="${esc(spec.describe)} — ${esc(spec.scale)}">
+        <div class="meter-fill" style="width:${width}%"></div>${ticks}
+      </div>
+      <div class="meter-state">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="icon" aria-hidden="true">${band.icon}</span>
+        <span>${esc(band.word)}</span>
+      </div>
+      <p class="meter-scale">${esc(spec.scale)}</p>
+    </div>`;
+}
+
+function renderHealthMeters(a) {
+  const el = document.getElementById("analysis-meters");
+  // No income means no ratio — not 0%, and not a full red bar. Saying so is
+  // the honest answer; a month between jobs is not a spending emergency.
+  if (!a.income) {
+    el.innerHTML = `<p class="meter-sub" style="margin:0;">No income recorded in
+      ${esc(monthLabel(a.key))}, so there is no ratio to show —
+      ${esc(fmtEur(a.spending))} went out.</p>`;
+    return;
+  }
+  const spentPct = a.spending / a.income * 100;
+  const keptPct = (a.income - a.spending) / a.income * 100;
+  el.innerHTML =
+    renderMeter(METER_BANDS.spending, spentPct,
+      `${fmtEur(a.spending)} spent of ${fmtEur(a.income)} earned`) +
+    renderMeter(METER_BANDS.liquidity, keptPct,
+      `${fmtEur(a.income - a.spending)} left after spending`);
+}
+
+function renderAnalysisStats(a) {
+  // Direction is stated in words as well as colour — a red number alone is
+  // meaningless to a colour-blind reader and to a screen reader.
+  const delta = (value, reference) => {
+    if (reference === null || !reference) return { text: "no baseline yet", cls: "" };
+    const pct = (value / reference - 1) * 100;
+    const word = pct >= 0 ? "more than" : "less than";
+    return { text: `${fmtPct(pct)} (${word} ${fmtEur(reference)})`, cls: pct >= 0 ? "up" : "down" };
+  };
+
+  const vsPrev = delta(a.spending, a.prev);
+  const vsBaseline = delta(a.spending, a.baseline);
+  const stats = [
+    { label: "Spent", value: fmtEur2(a.spending),
+      sub: `${a.txCount} transaction(s)${a.isCurrentMonth ? ` · ${a.elapsedDays} of ${a.totalDays} days elapsed` : ""}` },
+    { label: `vs previous month`, value: vsPrev.text, cls: vsPrev.cls,
+      sub: a.prevKey ? monthLabel(a.prevKey) : "no earlier month" },
+    { label: `vs ${a.baselineKeys.length || 0}-month average`, value: vsBaseline.text, cls: vsBaseline.cls,
+      sub: a.baselineKeys.length ? `${monthLabel(a.baselineKeys[0])}–${monthLabel(a.baselineKeys[a.baselineKeys.length - 1])}` : "not enough history" },
+    { label: "Income", value: fmtEur2(a.income),
+      sub: a.savings ? `${fmtEur(a.savings)} moved to savings` : "no savings transfers" },
+    { label: "Savings rate", value: a.savingsRate === null ? "—" : `${a.savingsRate.toFixed(0)}%`,
+      cls: a.savingsRate === null ? "" : (a.savingsRate >= 0 ? "down" : "up"),
+      sub: a.savingsRate === null ? "no income recorded this month" : `${fmtEur2(a.net)} left over` },
+    { label: "Per day", value: fmtEur2(a.perDay),
+      sub: a.isCurrentMonth ? `on track for ${fmtEur(a.projected)} by day ${a.totalDays}` : `over ${a.totalDays} days` },
+  ];
+
+  document.getElementById("analysis-stats").innerHTML = stats.map(s => `
+    <div class="stat">
+      <div class="label">${esc(s.label)}</div>
+      <div class="value ${s.cls ? "delta " + s.cls : ""}">${esc(s.value)}</div>
+      <div class="sub">${esc(s.sub)}</div>
+    </div>`).join("");
+
+  const noteEl = document.getElementById("analysis-note");
+  if (a.isCurrentMonth && a.baseline) {
+    const verdict = a.projected > a.baseline ? "above" : "below";
+    noteEl.textContent = `${monthLabel(a.key)} is still running: at ${fmtEur2(a.perDay)}/day it lands around `
+      + `${fmtEur(a.projected)}, ${verdict} the ${a.baselineKeys.length}-month average of ${fmtEur(a.baseline)}.`;
+  } else if (a.baseline) {
+    noteEl.textContent = `Savings/investment transfers are excluded from "Spent" — that money moved, it wasn't spent.`;
+  } else {
+    noteEl.textContent = `Not enough earlier months to compare against yet.`;
+  }
+}
+
+function renderPacingChart(rows, a) {
+  destroyChart("pacing");
+  const pace = computeSpendingPace(rows, a);
+  const datasets = [{
+    label: monthLabel(a.key), data: pace.current,
+    borderColor: cssVar("--series-2"), backgroundColor: cssVar("--series-2") + "1a",
+    borderWidth: 2, pointRadius: 0, fill: true, tension: 0.1, spanGaps: false,
+  }];
+  if (pace.baseline) {
+    datasets.push({
+      label: `${a.baselineKeys.length}-month average`, data: pace.baseline,
+      borderColor: cssVar("--series-1"), borderWidth: 2, borderDash: [5, 4],
+      pointRadius: 0, fill: false, tension: 0.1,
+    });
+  }
+  charts.pacing = new Chart(document.getElementById("chart-pacing"), {
+    type: "line",
+    data: { labels: pace.labels, datasets },
+    options: baseChartOptions({
+      scales: {
+        x: { title: { display: true, text: "Day of month", color: cssVar("--text-muted") },
+             grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted"), maxTicksLimit: 10 } },
+        y: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted") }, beginAtZero: true },
+      },
+    }),
+  });
+  const endOfMonth = pace.current.filter(v => v !== null).pop() || 0;
+  describeChart("chart-pacing", `Cumulative spending through ${monthLabel(a.key)}, reaching ${fmtEur(endOfMonth)}`
+    + (pace.baseline ? `, against a ${a.baselineKeys.length}-month average ending at ${fmtEur(pace.baseline[pace.baseline.length - 1])}.` : "."));
+}
+
+function renderCategoryTrendChart(rows) {
+  destroyChart("catTrend");
+  const { keys, series } = computeCategoryByMonth(rows);
+  charts.catTrend = new Chart(document.getElementById("chart-cat-trend"), {
+    type: "bar",
+    data: {
+      labels: keys.map(monthLabel),
+      datasets: series.map(s => ({
+        label: s.category, data: s.values,
+        backgroundColor: colorFor(EXPENSE_CATEGORIES, s.category), borderRadius: 2, maxBarThickness: 28,
+      })),
+    },
+    options: baseChartOptions({
+      scales: {
+        x: { stacked: true, grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted"), font: { size: 11 } } },
+        y: { stacked: true, grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted"), font: { size: 11 } }, beginAtZero: true },
+      },
+    }),
+  });
+  describeChart("chart-cat-trend", `Stacked spending by category across ${keys.length} month(s).`);
+  renderDataTable("cat-trend-table",
+    ["Month", ...series.map(s => s.category), "Total"],
+    keys.map((k, i) => [monthLabel(k), ...series.map(s => fmtEur(s.values[i])),
+                        fmtEur(series.reduce((total, s) => total + s.values[i], 0))]),
+    "Spending per category per month");
+}
+
+function renderTopSubcategories(rows, a) {
+  destroyChart("topSub");
+  const breakdown = computeSubcategoryBreakdown(monthRows(rows, a.key), 10);
+  charts.topSub = new Chart(document.getElementById("chart-top-sub"), {
+    type: "bar",
+    data: {
+      labels: breakdown.map(b => b.label),
+      datasets: [{
+        data: breakdown.map(b => b.amount),
+        backgroundColor: breakdown.map((b, i) => cssVar(SERIES[i % SERIES.length])),
+        borderRadius: 4, maxBarThickness: 18,
+      }],
+    },
+    options: baseChartOptions({ indexAxis: "y", plugins: { legend: { display: false } } }),
+  });
+  describeChart("chart-top-sub", breakdown.length
+    ? `Top sub-categories in ${monthLabel(a.key)}, led by ${breakdown[0].label} at ${fmtEur(breakdown[0].amount)}.`
+    : `No spending recorded in ${monthLabel(a.key)}.`);
+  renderDataTable("top-sub-table", ["Sub-category", "Amount", "Transactions", "% of month"],
+    breakdown.map(b => [b.label, fmtEur2(b.amount), String(b.count),
+                        a.spending ? `${(b.amount / a.spending * 100).toFixed(0)}%` : "—"]),
+    `Largest sub-categories in ${monthLabel(a.key)}`);
+}
+
+function renderRecurring(rows) {
+  const recurring = detectRecurring(rows);
+  document.getElementById("recurring-body").innerHTML = recurring.map(r => `
+    <tr>
+      <td>${esc(r.label)}<span class="row-note">last seen ${esc(r.lastSeen)}</span></td>
+      <td class="num">${esc(fmtEur2(r.typical))}</td>
+      <td class="num">${r.months}</td>
+      <td class="num">${esc(fmtEur(r.annualized))}</td>
+    </tr>`).join("");
+  const total = recurring.reduce((sum, r) => sum + r.annualized, 0);
+  document.getElementById("recurring-note").textContent = recurring.length
+    ? `${recurring.length} recurring commitment(s) — about ${fmtEur(total)} a year, ${fmtEur(total / 12)} a month. `
+      + `Detected as a sub-category appearing in ${RECURRING_MIN_MONTHS}+ months for an amount within `
+      + `${Math.round(RECURRING_TOLERANCE * 100)}% of its own median.`
+    : `Nothing repeats consistently enough yet — needs ${RECURRING_MIN_MONTHS}+ months of history per charge.`;
+}
+
+// A transaction is an outlier when it is large *for its own sub-category*,
+// not merely large. Comparing against the month's total would just re-rank the
+// same list; comparing against the sub-category's own history is what separates
+// "the weekly supermarket run, as always" from "the pharmacy visit that cost
+// six times what pharmacy visits cost here".
+//
+// Median, not mean: one €2,000 transfer would drag a mean high enough to hide
+// every other outlier in that sub-category. The €25 floor stops the arithmetic
+// flagging a €3 coffee for being triple a €1 one — technically true, useless.
+const OUTLIER_MULTIPLE = 2.5;
+const OUTLIER_FLOOR = 25;
+
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Typical amount per Category/Sub-category across everything loaded.
+function subcategoryMedians(rows) {
+  const byKey = new Map();
+  for (const r of rows) {
+    if (!isSpending(r)) continue;
+    const key = `${r.Category}/${r["Sub-category"]}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(Number(r["Amount (€)"]) || 0);
+  }
+  const out = new Map();
+  for (const [key, values] of byKey) out.set(key, { median: median(values), count: values.length });
+  return out;
+}
+
+function renderBiggestExpenses(rows, a) {
+  const medians = subcategoryMedians(rows);
+  const monthSpending = monthRows(rows, a.key).filter(isSpending);
+
+  const scored = monthSpending.map(r => {
+    const amount = Number(r["Amount (€)"]) || 0;
+    const key = `${r.Category}/${r["Sub-category"]}`;
+    const stat = medians.get(key) || { median: 0, count: 0 };
+    // One sighting cannot establish "usual", so a sub-category seen once is
+    // never called an outlier — it is simply unknown, and saying so is honest.
+    const comparable = stat.count >= 3 && stat.median > 0;
+    const ratio = comparable ? amount / stat.median : null;
+    return {
+      row: r, amount, key, stat, ratio,
+      isOutlier: comparable && amount >= OUTLIER_FLOOR && ratio >= OUTLIER_MULTIPLE,
+    };
+  });
+
+  // Outliers first, then plain size — the point of the card is that the
+  // unusual ones should not be buried under the merely big ones.
+  const shown = scored.slice()
+    .sort((x, y) => (y.isOutlier - x.isOutlier) || (y.amount - x.amount))
+    .slice(0, 12);
+  const outliers = scored.filter(x => x.isOutlier);
+
+  document.getElementById("biggest-body").innerHTML = shown.map(x => {
+    const r = x.row;
+    const share = a.spending ? (x.amount / a.spending * 100).toFixed(0) + "%" : "—";
+    let verdict = '<span style="color:var(--text-muted)">no baseline</span>';
+    if (x.ratio !== null) {
+      const times = x.ratio.toFixed(1) + "x";
+      verdict = x.isOutlier
+        ? `<span style="color:var(--status-critical);font-weight:600">\u25B3 ${times} usual</span>`
+        : `<span style="color:var(--text-secondary)">${times} usual</span>`;
+    }
+    return `
+    <tr>
+      <td>${esc(r.Date)}</td>
+      <td>${esc(r.Category)}${r["Sub-category"] ? " / " + esc(r["Sub-category"]) : ""}</td>
+      <td>${esc(r.Notes || "")}${r[REVIEW_NOTE] ? `<span class="row-note">${esc(r[REVIEW_NOTE])}</span>` : ""}</td>
+      <td class="num">${x.amount.toFixed(2)}</td>
+      <td class="num">${share}</td>
+      <td>${verdict}</td>
+    </tr>`;
+  }).join("");
+
+  const badge = document.getElementById("outlier-count");
+  badge.textContent = outliers.length ? `${outliers.length} unusual` : "";
+  badge.hidden = !outliers.length;
+
+  document.getElementById("biggest-note").textContent = monthSpending.length
+    ? (outliers.length
+        ? `${outliers.length} of ${monthSpending.length} spends are at least ${OUTLIER_MULTIPLE}x the usual `
+          + `amount for their sub-category (and over ${fmtEur(OUTLIER_FLOOR)}) — listed first. `
+          + `Sub-categories seen fewer than 3 times have no baseline yet.`
+        : `Nothing unusual: no spend reached ${OUTLIER_MULTIPLE}x its sub-category's usual amount. `
+          + `Showing the ${Math.min(shown.length, 12)} largest.`)
+    : "No spending recorded in this month.";
+}
+
+// ---------------------------------------------------------------------
+// Overall analysis — the whole loaded history, independent of the month
+// selector above. Both tables honour the year filter and the meal-card
+// toggle, because those describe *which transactions count*, not which
+// period is in focus.
+// ---------------------------------------------------------------------
+function renderMonthOverMonth(rows) {
+  const months = computeMonthlyOverview(rows);
+  const body = document.getElementById("mom-body");
+  const note = document.getElementById("mom-note");
+  if (!months.length) {
+    body.innerHTML = ""; note.textContent = "No transactions loaded."; return;
+  }
+  // Newest first: the row you want is almost always the most recent one.
+  const withDelta = months.map((m, i) => {
+    const prev = i > 0 ? months[i - 1] : null;
+    const pct = prev && prev.expense ? (m.expense / prev.expense - 1) * 100 : null;
+    const kept = m.income ? (m.income - m.expense) / m.income * 100 : null;
+    return { ...m, pct, kept, prevKey: prev ? prev.key : null };
+  }).reverse();
+
+  body.innerHTML = withDelta.map(m => {
+    // Direction is a word as well as a colour — a bare red number tells a
+    // colour-blind reader nothing, and "more" / "less" is unambiguous.
+    const delta = m.pct === null
+      ? '<span style="color:var(--text-muted)">first month</span>'
+      : `<span class="delta ${m.pct >= 0 ? "up" : "down"}">${fmtPct(m.pct)} ${m.pct >= 0 ? "more" : "less"}</span>`;
+    const keptCell = m.kept === null
+      ? '<span style="color:var(--text-muted)">—</span>'
+      : `${m.kept.toFixed(0)}%`;
+    return `
+    <tr>
+      <td>${esc(monthLabel(m.key))}</td>
+      <td class="num">${esc(fmtEur(m.income))}</td>
+      <td class="num">${esc(fmtEur(m.expense))}</td>
+      <td class="num"><span class="delta ${m.income - m.expense >= 0 ? "down" : "up"}">${esc(fmtEur(m.income - m.expense))}</span></td>
+      <td class="num">${keptCell}</td>
+      <td class="num">${delta}</td>
+    </tr>`;
+  }).join("");
+
+  const spends = months.map(m => m.expense).filter(v => v > 0);
+  note.textContent = `${months.length} month(s). Spending ranges ${fmtEur(Math.min(...spends))}`
+    + ` to ${fmtEur(Math.max(...spends))}, median ${fmtEur(median(spends))}.`
+    + ` "Kept" is income minus spending as a share of income; investments are not counted as spending.`;
+}
+
+function renderYearly(rows) {
+  const months = computeMonthlyOverview(rows);
+  const body = document.getElementById("yearly-body");
+  const note = document.getElementById("yearly-note");
+  if (!months.length) { body.innerHTML = ""; note.textContent = "No transactions loaded."; return; }
+
+  const byYear = new Map();
+  for (const m of months) {
+    const year = yearOf(m);
+    if (!byYear.has(year)) byYear.set(year, { year, months: 0, income: 0, expense: 0, savings: 0 });
+    const y = byYear.get(year);
+    y.months += 1; y.income += m.income; y.expense += m.expense; y.savings += m.savings;
+  }
+  const years = [...byYear.values()].sort((a, b) => b.year - a.year);
+
+  body.innerHTML = years.map(y => {
+    const kept = y.income ? (y.income - y.expense) / y.income * 100 : null;
+    return `
+    <tr>
+      <td>${y.year}</td>
+      <td class="num">${y.months}</td>
+      <td class="num">${esc(fmtEur(y.income))}</td>
+      <td class="num">${esc(fmtEur(y.expense))}</td>
+      <td class="num">${esc(fmtEur(y.savings))}</td>
+      <td class="num"><span class="delta ${y.income - y.expense >= 0 ? "down" : "up"}">${esc(fmtEur(y.income - y.expense))}</span></td>
+      <td class="num">${kept === null ? "—" : kept.toFixed(0) + "%"}</td>
+      <td class="num">${esc(fmtEur(y.expense / Math.max(y.months, 1)))}</td>
+    </tr>`;
+  }).join("");
+
+  // A part-year total is not comparable with a full one, and the difference is
+  // easy to miss in a table of big numbers — so it is stated rather than left
+  // for the reader to infer from the "Months" column.
+  const partial = years.filter(y => y.months < 12);
+  note.textContent = years.length
+    ? `Totals per calendar year over the loaded history.`
+      + (partial.length
+          ? ` ${partial.map(y => `${y.year} covers ${y.months} month(s)`).join(", ")} — `
+            + `part-year totals are not comparable with a full year; the per-month average is.`
+          : "")
+    : "";
+}
+
+function renderDataHealth(rows) {
+  const checks = computeDataHealth(rows);
+  document.getElementById("health-list").innerHTML = checks.map(c => `
+    <li>
+      <span class="marker ${c.ok ? "ok" : "warn"}" aria-hidden="true">${c.ok ? "✓" : "!"}</span>
+      <span class="sr-only">${c.ok ? "OK:" : "Needs attention:"}</span>
+      <span>${esc(c.text)}${c.detail ? `<span class="row-note">${esc(c.detail)}</span>` : ""}</span>
+    </li>`).join("");
+}
+
 function renderTable() {
   const search = document.getElementById("search-box").value.toLowerCase();
   const typeF = document.getElementById("type-filter").value;
   const catF = document.getElementById("cat-filter").value;
-  const rows = filteredRows()
+  const subF = document.getElementById("subcat-filter").value;
+  const reviewF = document.getElementById("review-filter").value;
+  const matching = filteredRows()
     .filter(r => !typeF || r.Type === typeF)
     .filter(r => !catF || r.Category === catF)
-    .filter(r => !search || `${r.Notes} ${r.Category} ${r["Sub-category"]}`.toLowerCase().includes(search))
-    .sort((a,b) => String(b.Date).localeCompare(String(a.Date)))
-    .slice(0, 500);
+    .filter(r => !subF || r["Sub-category"] === subF)
+    // "auto" is the interesting one: rows the rules answered on their own and
+    // nobody has ever checked. Filtering a category down to those is how you
+    // audit a rule you just wrote without wading through settled rows.
+    .filter(r => !reviewF
+      || (reviewF === "reviewed" && r[REVIEWED_AT])
+      || (reviewF === "queued" && isUnclassified(r))
+      || (reviewF === "auto" && !r[REVIEWED_AT] && !isUnclassified(r)))
+    // Review notes are searchable too — the point of writing "physio, receipt
+    // in the health folder" is being able to find it again a year later.
+    .filter(r => !search || `${r.Notes} ${r.Category} ${r["Sub-category"]} ${r[REVIEW_NOTE] || ""}`
+                              .toLowerCase().includes(search))
+    .sort((a,b) => String(b.Date).localeCompare(String(a.Date)));
+
+  const TABLE_LIMIT = 500;
+  const rows = matching.slice(0, TABLE_LIMIT);
 
   document.getElementById("tx-body").innerHTML = rows.map(r => `
     <tr>
-      <td>${r.Date}</td>
-      <td><span class="pill ${r.Type === TYPE_INCOME ? "income" : "expense"}">${r.Type}</span></td>
-      <td>${r.Category}</td>
-      <td>${r["Sub-category"] || ""}</td>
-      <td>${r.Method || ""}</td>
-      <td class="num">${Number(r["Amount (€)"]).toFixed(2)}</td>
-      <td>${r.Notes || ""}</td>
+      <td>${esc(r.Date)}</td>
+      <td><span class="pill ${r.Type === TYPE_INCOME ? "income" : "expense"}">${esc(r.Type)}</span></td>
+      <td>${esc(r.Category)}</td>
+      <td>${esc(r["Sub-category"] || "")}</td>
+      <td>${esc(r.Method || "")}</td>
+      <td class="num">${Number(r["Amount (€)"] || 0).toFixed(2)}</td>
+      <td>
+        ${esc(r.Notes || "")}
+        ${r[REVIEWED_AT] ? (isDerivedReview(r)
+            ? `<span class="badge auto" title="Auto-applied ${esc(r[REVIEWED_AT])} from another review of the same description">auto</span>`
+            : `<span class="badge reviewed" title="Reviewed ${esc(r[REVIEWED_AT])}">reviewed</span>`) : ""}
+        ${r[REVIEW_NOTE] ? `<span class="row-note">${esc(r[REVIEW_NOTE])}</span>` : ""}
+      </td>
+      <td>
+        <button class="link" data-review-id="${esc(r.transaction_id)}">
+          ${r[REVIEWED_AT] ? "Edit review" : "Review"}
+          <span class="sr-only"> transaction of ${esc(Number(r["Amount (€)"] || 0).toFixed(2))} euros on ${esc(r.Date)}</span>
+        </button>
+      </td>
     </tr>`).join("");
+
+  // The total for the current filter, not just the count. Filtering to
+  // Alimentação / Restaurantes and being told "54 transactions" answers half a
+  // question; "54 transactions, €1,261.13" answers the one you actually asked.
+  const total = sumAmount(matching);
+  const shown = matching.length > TABLE_LIMIT
+    ? `Showing the ${TABLE_LIMIT} most recent of ${matching.length} matching transactions — narrow the filters to see older ones.`
+    : `${matching.length} matching transaction(s).`;
+  document.getElementById("tx-count").textContent =
+    matching.length ? `${shown} ${fmtEur2(total)} in total.` : shown;
+
+  bindReviewButtons("tx-body");
+}
+
+// Both the Needs Review queue and the Transactions table offer a Review
+// button, so binding is shared — and it has to re-run after every render,
+// since innerHTML throws the old listeners away with the old nodes. Scoped to
+// the tbody that was just rebuilt: a page-wide query would re-bind the *other*
+// table's still-live buttons too, stacking a duplicate listener on them every
+// time you typed a character into the search box.
+function bindReviewButtons(containerId) {
+  document.getElementById(containerId).querySelectorAll("[data-review-id]").forEach(btn => {
+    btn.addEventListener("click", () => openReviewPanel(btn.dataset.reviewId, btn));
+  });
 }
 
 // ---------------------------------------------------------------------
-// Needs Review — expenses whose category came from the generic "Outros"
-// fallback (no purpose keyword matched at all). Fixing one here edits that
-// row in place; "remember" also teaches an override so every other matching
-// row clears immediately and future monthly files benefit too — except when
-// Method is MBWay/Transferência, since that likely means a peer-to-peer
-// transfer whose purpose can vary month to month for the same counterparty.
+// Needs Review — rows sitting on Outros / Por Classificar, i.e. nothing
+// matched and the classifier said so. Fixing one here edits that row in place;
+// "remember" also teaches an override so every other matching row clears
+// immediately and future monthly files benefit too — except when Method is
+// MBWay/Transferência, since that likely means a peer-to-peer transfer whose
+// purpose can vary month to month for the same counterparty.
 // ---------------------------------------------------------------------
+// Note what is NOT in the queue: Outros/Levantamento and
+// Outros/Transferências Pessoais share the category but are settled facts —
+// cash withdrawn, money sent to a named person — not unanswered questions.
+// ---------------------------------------------------------------------
+// Income belongs here too. It used to be expenses only, which left every
+// income row that fell through invisible — reachable solely by hunting for it
+// in the Transactions table. Income and expense are told apart by an explicit
+// column rather than by the reader inferring it.
 function reviewQueue() {
-  return store.filter(r => r.Type === TYPE_EXPENSE && r.Category === "Outros");
+  return store.filter(r => !r[REVIEWED_AT] && isUnclassified(r));
+}
+
+// Rows the user has ticked in the queue for an ad-hoc batch review. Held by id
+// rather than by reference so a re-render can't strand the selection.
+let reviewSelection = new Set();
+
+function selectedRows() {
+  return store.filter(r => reviewSelection.has(String(r.transaction_id)));
+}
+
+function refreshSelectionUi() {
+  // Drop ids that have left the queue (reviewed, or cleared) so the count
+  // never claims more than is actually selectable.
+  const inQueue = new Set(reviewQueue().map(r => String(r.transaction_id)));
+  for (const id of [...reviewSelection]) if (!inQueue.has(id)) reviewSelection.delete(id);
+
+  const count = reviewSelection.size;
+  document.getElementById("review-selected-count").textContent = count;
+  document.getElementById("btn-review-selected").disabled = count < 1;
+  const all = document.getElementById("review-select-all");
+  all.checked = count > 0 && count === inQueue.size;
+  all.indeterminate = count > 0 && count < inQueue.size;
 }
 
 function renderReviewQueue() {
@@ -1134,111 +2871,762 @@ function renderReviewQueue() {
   document.getElementById("review-count").textContent = queue.length;
   document.getElementById("review-empty").style.display = queue.length ? "none" : "block";
   document.getElementById("review-table-wrap").style.display = queue.length ? "block" : "none";
+  document.getElementById("review-toolbar").style.display = queue.length ? "flex" : "none";
 
-  document.getElementById("review-body").innerHTML = queue.map(r => `
+  document.getElementById("review-body").innerHTML = queue.map(r => {
+    const id = String(r.transaction_id);
+    const isIncome = r.Type === TYPE_INCOME;
+    return `
     <tr>
-      <td>${r.Date}</td>
-      <td>${r.Notes || ""}</td>
-      <td>${r.Category}${r["Sub-category"] ? " / " + r["Sub-category"] : ""}</td>
-      <td class="num">${Number(r["Amount (€)"]).toFixed(2)}</td>
-      <td><button class="link" data-review-id="${r.transaction_id}">Review</button></td>
-    </tr>`).join("");
+      <td class="select-cell">
+        <input type="checkbox" class="review-select" data-select-id="${esc(id)}"
+               ${reviewSelection.has(id) ? "checked" : ""}
+               aria-label="Select the ${esc(r.Type.toLowerCase())} of ${esc(Number(r["Amount (€)"] || 0).toFixed(2))} euros on ${esc(r.Date)} for batch review">
+      </td>
+      <td><span class="pill ${isIncome ? "income" : "expense"}">${esc(r.Type)}</span></td>
+      <td>${esc(r.Date)}</td>
+      <td>${esc(r.Notes || "")}</td>
+      <td>${esc(r.Category)}${r["Sub-category"] ? " / " + esc(r["Sub-category"]) : ""}</td>
+      <td class="num">${Number(r["Amount (€)"] || 0).toFixed(2)}</td>
+      <td><button class="link" data-review-id="${esc(id)}">Review<span class="sr-only"> the ${esc(r.Type.toLowerCase())} of ${esc(Number(r["Amount (€)"] || 0).toFixed(2))} euros on ${esc(r.Date)}</span></button></td>
+    </tr>`;
+  }).join("");
 
-  document.querySelectorAll("[data-review-id]").forEach(btn => {
-    btn.addEventListener("click", () => openReviewPanel(btn.dataset.reviewId));
+  document.getElementById("review-body").querySelectorAll(".review-select").forEach(box => {
+    box.addEventListener("change", () => {
+      if (box.checked) reviewSelection.add(box.dataset.selectId);
+      else reviewSelection.delete(box.dataset.selectId);
+      refreshSelectionUi();
+    });
   });
+  refreshSelectionUi();
+  bindReviewButtons("review-body");
 }
 
-function openReviewPanel(transactionId) {
-  const row = store.find(r => r.transaction_id === transactionId);
-  if (!row) return;
+// ---------------------------------------------------------------------
+// Bulk-apply a review to the other queue items with the identical
+// description.
+//
+// Matching is EXACT on the normalized description, and deliberately so.
+// Looser keys score better on paper — grouping by the first two words clears
+// 53% of this store's queue against 39% for exact — but "Trf. MB WAY para X"
+// makes every peer transfer share its opening words, so that key collapses
+// every distinct counterparty into one bucket and reviewing one person's
+// transfer would re-file all of them. Exact match is the only key that can't
+// merge two things the description itself distinguishes.
+//
+// The split below matters more than the matching. For a merchant, the name
+// determines the category no matter the amount — Uber at €4.94 and Uber at
+// €88.62 are both Uber — so those are proposed pre-checked. For a peer
+// transfer the counterparty does NOT determine the purpose (the same person
+// sends €13 one month and €263 another), so those are proposed unchecked.
+// And a transfer whose description names nobody at all ("Trf. MB WAY
+// emitida") is not offered at all: grouping those groups unrelated payments.
+// ---------------------------------------------------------------------
+// A row whose category came from another row's review rather than from
+// someone looking at this one. The decision carries `derived_from`, but a
+// store loaded from a CSV on another machine only has the note marker — so
+// both are accepted as evidence.
+const DERIVED_MARKER = "↳ auto-applied";
 
-  document.getElementById("rp-current-guess").textContent =
-    `Currently guessed as: ${row.Category}${row["Sub-category"] ? " / " + row["Sub-category"] : ""}`;
+function isDerivedReview(row) {
+  const decision = reviewDecisions[row.transaction_id];
+  if (decision && decision.derived_from) return true;
+  return String(row[REVIEW_NOTE] || "").startsWith(DERIVED_MARKER);
+}
+
+function normalizedDescription(notes) {
+  return String(notes ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// A row is "awaiting an answer" only when it sits on the review bucket itself.
+// Outros/Levantamento and Outros/Transferências Pessoais share the category
+// but are settled facts, not unknowns.
+function isUnclassified(row) {
+  return row.Category === UNCLASSIFIED_CATEGORY && row["Sub-category"] === UNCLASSIFIED_SUB;
+}
+
+// The best valid pair for a possibly-legacy one, or null. Mirrors
+// taxonomy.resolve() — same alias table (emitted into rules.js), same
+// precedence: an exact sub-category alias beats the category-wide "*".
+//
+// Needed because saved review decisions and loaded stores outlive the
+// taxonomy: a decision made when the gym lived under Saúde still says
+// "Saúde/Ginásio", and re-applying it verbatim writes a retired pair back into
+// the store — this file quietly undoing the guarantee the taxonomy provides.
+function resolvePair(txnType, category, subCategory) {
+  category = String(category ?? "").trim();
+  subCategory = String(subCategory ?? "").trim();
+  if (isValidPair(txnType, category, subCategory)) return [category, subCategory];
+  if (typeof LEGACY_ALIASES === "undefined") return null;
+  for (const key of [`${txnType}|${category}|${subCategory.toLowerCase()}`,
+                     `${txnType}|${category}|*`]) {
+    const aliased = LEGACY_ALIASES[key];
+    if (aliased && isValidPair(txnType, aliased[0], aliased[1])) return aliased;
+  }
+  return null;
+}
+
+// Whether a Category/Sub-category pair exists in the taxonomy. The single
+// gate every writer goes through — the review panel, the health checks and
+// (in Python) taxonomy.validate().
+function isValidPair(txnType, category, subCategory) {
+  const tree = (typeof TAXONOMY === "undefined") ? null : TAXONOMY[txnType];
+  if (!tree) return true;                 // rules.js failed to load — don't cry wolf
+  const subs = tree[category];
+  return Array.isArray(subs) && subs.includes(String(subCategory ?? ""));
+}
+
+// Still-unreviewed rows sharing this row's exact description. Reviewed rows
+// are excluded: they already have a human answer that this one shouldn't
+// silently overwrite.
+function findSiblings(row) {
+  const key = normalizedDescription(row.Notes);
+  if (!key) return [];
+  return store.filter(other =>
+    other !== row &&
+    !other[REVIEWED_AT] &&
+    other.Type === row.Type &&
+    isUnclassified(other) &&
+    normalizedDescription(other.Notes) === key);
+}
+
+function siblingPolicy(row) {
+  const isPeerRail = row.Method === "MBWay" || row.Method === "Transferência";
+  const counterparty = extractCounterparty(row.Notes || "");
+  // A peer rail with no readable counterparty is an unnamed transfer — the
+  // description identifies nothing, so identical text is not evidence of a
+  // shared purpose. Not offered.
+  if (isPeerRail && !counterparty) return { offer: false };
+  return { offer: true, peer: isPeerRail, preChecked: !isPeerRail, counterparty };
+}
+
+// Repopulate the sub-category picker for whichever category is selected.
+//
+// This used to be a free-text box with a datalist of every sub-category the
+// store had ever seen, plus a soft "that pair looks wrong" warning. That is
+// how the store acquired Gasoleo/Gasóleo, Telemovel/Telecomunicações,
+// PPR/PPR-Fundo de Pensões and 71 sub-categories that were people's names —
+// a suggestion you can ignore is not a constraint. The taxonomy is now the
+// only source of options, and it is per-category, so an invalid pair cannot
+// be expressed at all.
+//
+// `keep` re-selects a value the caller wants preserved (the row's current
+// sub-category) when it is still valid under the newly-chosen category.
+function refreshSubcategoryOptions(keep) {
+  const panel = document.getElementById("review-panel");
+  const txnType = panel.dataset.txnType;
+  const category = document.getElementById("rp-category").value;
+  const select = document.getElementById("rp-subcategory");
+  const hint = document.getElementById("rp-subcategory-hint");
+
+  const tree = (typeof TAXONOMY === "undefined") ? {} : (TAXONOMY[txnType] || {});
+  const subs = tree[category] || [];
+
+  select.innerHTML = subs.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  select.disabled = subs.length === 0;
+  // Set the selection explicitly rather than leaning on the browser picking
+  // the first option after an innerHTML swap: the panel's correctness should
+  // not depend on that, and stating it makes the invariant testable.
+  select.value = (keep && subs.includes(keep)) ? keep : (subs[0] || "");
+
+  hint.textContent = category
+    ? (subs.length ? `${subs.length} sub-categories defined for ${category}.`
+                   : `No sub-categories defined for ${category}.`)
+    : "Pick a category first.";
+}
+
+// Which type the panel is working on, and what that means for the numbers.
+// Stated explicitly because income and expense draw from different category
+// lists and push every total on the page in opposite directions — reading it
+// off the amount is exactly the mistake this is here to prevent.
+function renderTypeBanner(rows) {
+  const types = new Set(rows.map(r => r.Type));
+  const banner = document.getElementById("rp-type-banner");
+  const badge = document.getElementById("rp-type-badge");
+  const explainer = document.getElementById("rp-type-explainer");
+  const total = rows.reduce((sum, r) => sum + (Number(r["Amount (€)"]) || 0), 0);
+
+  if (types.size > 1) {
+    banner.className = "type-banner mixed";
+    badge.textContent = "Mixed";
+    explainer.textContent =
+      `${rows.length} transactions, both income and expense — they can't share a category, ` +
+      `since the two use different lists. Select one type at a time.`;
+    return "mixed";
+  }
+  const type = [...types][0] || TYPE_EXPENSE;
+  const isIncome = type === TYPE_INCOME;
+  banner.className = `type-banner ${isIncome ? "income" : "expense"}`;
+  badge.textContent = type;
+  explainer.textContent = isIncome
+    ? `Money in — ${fmtEur2(total)}. Categories below are the income list.`
+    : `Money out — ${fmtEur2(total)}. Categories below are the expense list.`;
+  return type;
+}
+
+// The taxonomy is now per-category and enforced by the picker itself, so the
+// old subcategoryMap()/checkSubcategoryConflict() pair is gone: there is no
+// longer such a thing as a sub-category that "belongs elsewhere", because you
+// cannot select one that doesn't belong here. What remains is the last-resort
+// check before writing, for values that reached the panel from somewhere other
+// than the picker (a pre-filled row, a stale store).
+function assertValidPair(txnType, category, subCategory) {
+  if (isValidPair(txnType, category, subCategory)) return true;
+  alert(`"${category} / ${subCategory}" is not a pair the taxonomy allows.\n\n` +
+        `Pick a category and sub-category from the lists. The full taxonomy lives in ` +
+        `finance_tracker/taxonomy.py.`);
+  return false;
+}
+
+function selectedSiblingIds() {
+  return [...document.querySelectorAll("#rp-siblings-list input[type=checkbox]")]
+    .filter(box => box.checked).map(box => box.dataset.siblingId);
+}
+
+function refreshSiblingTally() {
+  const boxes = [...document.querySelectorAll("#rp-siblings-list input[type=checkbox]")];
+  const picked = boxes.filter(b => b.checked).length;
+  document.getElementById("rp-siblings-tally").textContent = `${picked} of ${boxes.length} selected`;
+  // The master checkbox follows the rows rather than the other way round:
+  // unticking every row shouldn't leave a checked "apply" box that applies
+  // to nothing.
+  const master = document.getElementById("rp-apply-siblings");
+  master.checked = picked > 0;
+  master.indeterminate = picked > 0 && picked < boxes.length;
+}
+
+function renderSiblingOffer(row) {
+  const field = document.getElementById("rp-siblings-field");
+  const checkbox = document.getElementById("rp-apply-siblings");
+  const siblings = findSiblings(row);
+  const policy = siblingPolicy(row);
+
+  if (!siblings.length || !policy.offer) {
+    field.style.display = "none";
+    checkbox.checked = false;
+    document.getElementById("rp-siblings-controls").hidden = true;
+    document.getElementById("rp-siblings-list").innerHTML = "";
+    // Explain the silence when there *were* matches but they're the unnamed
+    // kind — otherwise the option just seems to be missing at random.
+    if (siblings.length && !policy.offer) {
+      field.style.display = "block";
+      field.classList.add("peer");
+      checkbox.checked = false;
+      checkbox.disabled = true;
+      document.getElementById("rp-siblings-label").textContent =
+        `${siblings.length} other item(s) share this description — not offered`;
+      document.getElementById("rp-siblings-hint").textContent =
+        `This description names no counterparty, so identical text isn't evidence they were for ` +
+        `the same thing. These have to be reviewed one at a time.`;
+      document.getElementById("rp-siblings-list").innerHTML = "";
+    }
+    return;
+  }
+
+  field.style.display = "block";
+  field.classList.toggle("peer", Boolean(policy.peer));
+  checkbox.disabled = false;
+  checkbox.checked = policy.preChecked;
+  document.getElementById("rp-siblings-controls").hidden = false;
+
+  const total = siblings.reduce((sum, r) => sum + (Number(r["Amount (€)"]) || 0), 0);
+  document.getElementById("rp-siblings-label").textContent =
+    `Also apply to other item(s) with this exact description — ${siblings.length} found (${fmtEur2(total)})`;
+  document.getElementById("rp-siblings-hint").textContent = policy.peer
+    ? `Off by default: "${policy.counterparty}" appearing again doesn't mean the money was for the ` +
+      `same thing. Tick only the ones you're sure about — the rest stay in the queue. Only the ` +
+      `category and sub-category are copied, never your note.`
+    : `On by default: the merchant determines the category regardless of amount. Untick any that ` +
+      `don't belong and they stay in the queue. Only the category and sub-category are copied — ` +
+      `your note stays on this transaction alone.`;
+
+  // One checkbox per row, not one for the set: ten transactions can share a
+  // description and still not share a purpose. Seven can be ticked and three
+  // left in the queue rather than forcing all-or-nothing.
+  document.getElementById("rp-siblings-list").innerHTML = siblings.map(r => `
+    <li>
+      <label>
+        <input type="checkbox" data-sibling-id="${esc(r.transaction_id)}" ${policy.preChecked ? "checked" : ""}>
+        <span>${esc(r.Date)}</span>
+      </label>
+      <span class="amt">${esc(Number(r["Amount (€)"] || 0).toFixed(2))}</span>
+    </li>`).join("");
+  document.querySelectorAll("#rp-siblings-list input[type=checkbox]")
+    .forEach(box => box.addEventListener("change", refreshSiblingTally));
+  refreshSiblingTally();
+}
+
+function setAllSiblings(checked) {
+  document.querySelectorAll("#rp-siblings-list input[type=checkbox]").forEach(b => { b.checked = checked; });
+  refreshSiblingTally();
+}
+document.getElementById("rp-siblings-all").addEventListener("click", () => setAllSiblings(true));
+document.getElementById("rp-siblings-none").addEventListener("click", () => setAllSiblings(false));
+document.getElementById("rp-apply-siblings").addEventListener("change", (e) => setAllSiblings(e.target.checked));
+// Changing the category re-stocks the sub-category picker. Nothing is kept
+// across the change: a sub-category is only meaningful under its own category.
+document.getElementById("rp-category").addEventListener("change", () => refreshSubcategoryOptions());
+
+let lastFocusedBeforePanel = null;
+
+function openReviewPanel(transactionId, invoker) {
+  const row = store.find(r => String(r.transaction_id) === String(transactionId));
+  if (!row) return;
+  lastFocusedBeforePanel = invoker || document.activeElement;
+
+  const panelEl = document.getElementById("review-panel");
+  panelEl.dataset.batchIds = "";
+  panelEl.dataset.txnType = row.Type;
+  document.getElementById("rp-single-fields").style.display = "block";
+  document.getElementById("rp-batch-field").style.display = "none";
+  renderTypeBanner([row]);
+
+  // Three states, not two. A row can be (a) in the queue with no answer, (b)
+  // auto-classified but never checked by a human, or (c) reviewed. The panel
+  // used to collapse (b) into (a) and open with an empty picker, which made
+  // "this Uber Eats is filed as Transportes, fix it" needlessly awkward: you
+  // lost sight of the current answer at the moment you were trying to change
+  // one character of it.
+  const isReviewed = Boolean(row[REVIEWED_AT]);
+  const isQueued = isUnclassified(row);
+  const current = `${row.Category}${row["Sub-category"] ? " / " + row["Sub-category"] : ""}`;
+
+  document.getElementById("rp-title").textContent =
+    isReviewed ? "Edit this review" : isQueued ? "Complete this transaction" : "Correct this transaction";
+  document.getElementById("rp-current-guess").textContent = isReviewed
+    ? `Reviewed ${row[REVIEWED_AT]} — currently ${current}`
+    : isQueued
+      ? `Nothing matched this description — it's waiting for an answer.`
+      : `Auto-classified as ${current}, never checked by hand.`;
   document.getElementById("rp-date").textContent = row.Date;
   document.getElementById("rp-notes").textContent = row.Notes || "";
-  document.getElementById("rp-amount").textContent = Number(row["Amount (€)"]).toFixed(2);
+  document.getElementById("rp-amount").textContent = Number(row["Amount (€)"] || 0).toFixed(2);
 
-  // "Outros" is deliberately not a pickable option here — it's the "still
-  // unreviewed" state every row in this queue starts from, so leaving it
-  // selected would silently save the row right back into the queue. The
-  // placeholder forces an explicit real choice before Save will do anything.
+  // "Outros" stays pickable — it has real sub-categories (Levantamento,
+  // Transferências Pessoais) that are legitimate answers. What is never saved
+  // is the review bucket itself.
+  //
+  // Only a queued row opens on the placeholder, and only because leaving it
+  // untouched would save the row straight back into the queue. Every other row
+  // opens on its current pair, so correcting one is a single change rather
+  // than a re-entry of an answer that was already 90% right.
   const catSel = document.getElementById("rp-category");
-  const pickableCategories = EXPENSE_CATEGORIES.filter(c => c !== "Outros");
-  catSel.innerHTML = `<option value="" disabled selected>Choose a category…</option>` +
-    pickableCategories.map(c => `<option value="${c}">${c}</option>`).join("");
+  catSel.disabled = false;   // batch mode disables it for a mixed selection
+  const pickable = row.Type === TYPE_INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  catSel.innerHTML = `<option value="" disabled ${isQueued ? "selected" : ""}>Choose a category…</option>` +
+    pickable.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  catSel.value = (!isQueued && pickable.includes(row.Category)) ? row.Category : "";
 
-  document.getElementById("rp-subcategory").value = row["Sub-category"] === "Diversos" ? "" : (row["Sub-category"] || "");
+  refreshSubcategoryOptions(row["Sub-category"]);
+  // A derived row's "note" is a provenance marker, not something the user
+  // wrote — offer an empty box so opening it to add the real detail doesn't
+  // mean deleting boilerplate first.
+  document.getElementById("rp-review-note").value =
+    isDerivedReview(row) ? "" : (row[REVIEW_NOTE] || "");
 
   const methodSel = document.getElementById("rp-method");
-  methodSel.innerHTML = METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
+  methodSel.innerHTML = METHODS.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
   methodSel.value = row.Method || "Cartão";
 
-  // Safe to learn from unless Method is MBWay/Transferência — those likely
-  // mean a peer-to-peer transfer, whose purpose isn't a stable property of
-  // the counterparty (unlike a merchant, which always means the same thing).
-  const canRemember = row.Method !== "MBWay" && row.Method !== "Transferência";
-  document.getElementById("rp-remember-field").style.display = canRemember ? "block" : "none";
-  document.getElementById("rp-remember").checked = false;
-  document.getElementById("rp-keyword").value = canRemember ? (row.Notes || "").toLowerCase() : "";
+  // Two mutually exclusive "remember" offers, chosen by the payment rail.
+  //
+  // A merchant's category is a stable fact — the bowling alley is always
+  // Lazer — so that rule is offered plainly. A peer-to-peer transfer's
+  // purpose usually isn't: the same person can send rent one month and a
+  // birthday gift the next. So the MBWay/Transferência variant is a separate,
+  // visually-flagged, opt-in control that learns the *counterparty name*, sets
+  // only the category and sub-category, and never touches the Method.
+  const isPeerRail = row.Method === "MBWay" || row.Method === "Transferência";
+  const counterparty = extractCounterparty(row.Notes || "");
 
-  document.getElementById("review-panel").dataset.transactionId = transactionId;
-  document.getElementById("review-panel").hidden = false;
+  renderSiblingOffer(row);
+
+  const merchantField = document.getElementById("rp-remember-field");
+  const peerField = document.getElementById("rp-remember-peer-field");
+  merchantField.style.display = isPeerRail ? "none" : "block";
+  peerField.style.display = isPeerRail ? "block" : "none";
+
+  document.getElementById("rp-remember").checked = false;
+  document.getElementById("rp-keyword").value = isPeerRail ? "" : (row.Notes || "").toLowerCase();
+
+  document.getElementById("rp-remember-peer").checked = false;
+  document.getElementById("rp-peer-keyword").value =
+    (counterparty || row["Sub-category"] || "").toLowerCase();
+  document.getElementById("rp-peer-hint").textContent = counterparty
+    ? `Off by default: a transfer's purpose can change month to month, so "${counterparty}" sending you `
+      + `money isn't proof of what it's for. Turn it on only when this counterparty really is always the `
+      + `same thing. It sets the category and sub-category on future transfers with this name — never the `
+      + `payment method — and a matching purpose keyword still wins over it.`
+    : `Off by default: a transfer's purpose can change month to month. No counterparty name could be read `
+      + `from this description, so type the distinctive part yourself if you want it remembered.`;
+
+  const panel = document.getElementById("review-panel");
+  panel.dataset.transactionId = String(transactionId);
+  panel.hidden = false;
   document.getElementById("review-panel-backdrop").hidden = false;
+  // Focus moves into the dialog, so a keyboard user isn't left behind on the
+  // page underneath with no way to reach the fields that just appeared.
+  catSel.focus();
 }
+
+// Batch review of transactions that belong together for a reason no
+// description can express — four MBWay transfers that were one dinner split,
+// a weekend's worth of unrelated-looking payments for the same trip.
+//
+// It writes categories and nothing else. No override, no peer rule, no
+// description-keyed association: the grouping was a fact about one evening,
+// not about those counterparties, and remembering it would mis-file every
+// future transfer from the same people.
+function openBatchReviewPanel(rows, invoker) {
+  if (!rows.length) return;
+  lastFocusedBeforePanel = invoker || document.activeElement;
+
+  const panel = document.getElementById("review-panel");
+  panel.dataset.batchIds = JSON.stringify(rows.map(r => String(r.transaction_id)));
+  const type = renderTypeBanner(rows);
+  panel.dataset.txnType = type === "mixed" ? "" : type;
+
+  document.getElementById("rp-title").textContent = `Review ${rows.length} transactions together`;
+  document.getElementById("rp-current-guess").textContent =
+    `They keep their own descriptions and dates — only the category is shared.`;
+  document.getElementById("rp-single-fields").style.display = "none";
+  document.getElementById("rp-batch-field").style.display = "block";
+  document.getElementById("rp-batch-label").textContent =
+    `${rows.length} selected · ${fmtEur2(rows.reduce((s, r) => s + (Number(r["Amount (€)"]) || 0), 0))}`;
+  document.getElementById("rp-batch-list").innerHTML = rows.map(r => `
+    <li><span>${esc(r.Date)} — ${esc((r.Notes || "").slice(0, 40))}</span>
+        <span class="amt">${esc(Number(r["Amount (€)"] || 0).toFixed(2))}</span></li>`).join("");
+
+  const catSel = document.getElementById("rp-category");
+  if (type === "mixed") {
+    // Income and expense draw from different lists; there is no category that
+    // could be correct for both, so the panel says so instead of guessing.
+    catSel.innerHTML = `<option value="" disabled selected>Select one type at a time…</option>`;
+    catSel.disabled = true;
+  } else {
+    catSel.disabled = false;
+    const pickable = type === TYPE_INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+    catSel.innerHTML = `<option value="" disabled selected>Choose a category…</option>` +
+      pickable.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  }
+
+  refreshSubcategoryOptions();
+  document.getElementById("rp-review-note").value = "";
+
+  const methodSel = document.getElementById("rp-method");
+  methodSel.innerHTML = `<option value="">Leave each transaction's own method</option>` +
+    METHODS.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+  methodSel.value = "";
+
+  // None of the "remember this" affordances apply to an ad-hoc grouping.
+  ["rp-siblings-field", "rp-remember-field", "rp-remember-peer-field"]
+    .forEach(id => { document.getElementById(id).style.display = "none"; });
+  document.getElementById("rp-apply-siblings").checked = false;
+  document.getElementById("rp-remember").checked = false;
+  document.getElementById("rp-remember-peer").checked = false;
+
+  panel.hidden = false;
+  document.getElementById("review-panel-backdrop").hidden = false;
+  catSel.focus();
+}
+
+document.getElementById("btn-review-selected").addEventListener("click", (e) => {
+  openBatchReviewPanel(selectedRows(), e.currentTarget);
+});
+
+document.getElementById("review-select-all").addEventListener("change", (e) => {
+  reviewSelection = e.target.checked
+    ? new Set(reviewQueue().map(r => String(r.transaction_id)))
+    : new Set();
+  renderReviewQueue();
+});
 
 function closeReviewPanel() {
   document.getElementById("review-panel").hidden = true;
   document.getElementById("review-panel-backdrop").hidden = true;
+  // Return focus to whatever opened the panel; without this, focus resets to
+  // the top of the document and the user loses their place in a 500-row table.
+  if (lastFocusedBeforePanel && document.contains(lastFocusedBeforePanel)) {
+    lastFocusedBeforePanel.focus();
+  }
+  lastFocusedBeforePanel = null;
 }
+
+function panelIsOpen() { return !document.getElementById("review-panel").hidden; }
 
 document.getElementById("rp-cancel").addEventListener("click", closeReviewPanel);
 document.getElementById("review-panel-backdrop").addEventListener("click", closeReviewPanel);
 
+// Escape closes, and Tab is trapped inside the dialog — an aria-modal dialog
+// that lets focus wander into the page behind it is a modal in name only.
+document.addEventListener("keydown", (e) => {
+  if (!panelIsOpen()) return;
+  if (e.key === "Escape") { closeReviewPanel(); return; }
+  if (e.key !== "Tab") return;
+
+  const panel = document.getElementById("review-panel");
+  const focusable = [...panel.querySelectorAll("button, input, select, textarea, [href]")]
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+// Adding a rule replaces any existing one with the same keywords, type and
+// kind, rather than stacking a second, permanently-shadowed copy behind it —
+// correcting the same merchant twice should leave one rule, not two.
+// (Mirrors overrides.add_override.)
+function upsertOverride(entry) {
+  overrides = overrides.filter(o => overrideKey(o) !== overrideKey(entry));
+  overrides.push(entry);
+  overridesDirty = true;
+  // Durable immediately, before any download button is touched — closing the
+  // tab now must not lose the rule.
+  persistOverridesToLocalStorage();
+  saveOverridesToDataFolder();
+  document.getElementById("btn-download-overrides").disabled = false;
+}
+
 document.getElementById("rp-save").addEventListener("click", () => {
-  const transactionId = document.getElementById("review-panel").dataset.transactionId;
-  const row = store.find(r => r.transaction_id === transactionId);
+  const panel = document.getElementById("review-panel");
+  if (panel.dataset.batchIds) { saveBatchReview(); return; }
+
+  const transactionId = panel.dataset.transactionId;
+  const row = store.find(r => String(r.transaction_id) === String(transactionId));
   if (!row) return;
 
   const category = document.getElementById("rp-category").value;
   if (!category) {
-    setStatus("Pick a specific category before saving — leaving it as \"Outros\" means it's still unreviewed.", true);
+    setStatus("Pick a category before saving — an unanswered row stays in the queue.", true);
+    document.getElementById("rp-category").focus();
     return;
   }
-  const subCategory = document.getElementById("rp-subcategory").value.trim() || "Diversos";
+  const subCategory = document.getElementById("rp-subcategory").value;
+  if (!assertValidPair(row.Type, category, subCategory)) return;
+  if (subCategory === UNCLASSIFIED_SUB) {
+    setStatus(`"${UNCLASSIFIED_SUB}" is the queue itself — pick a real sub-category to clear this row.`, true);
+    document.getElementById("rp-subcategory").focus();
+    return;
+  }
   const method = document.getElementById("rp-method").value;
-  const remember = document.getElementById("rp-remember-field").style.display !== "none" &&
-                   document.getElementById("rp-remember").checked;
+  const reviewNote = document.getElementById("rp-review-note").value.trim();
+  const txnType = row.Type === TYPE_INCOME ? "income" : "expense";
+
+  const visible = el => document.getElementById(el).style.display !== "none";
+  const rememberMerchant = visible("rp-remember-field") && document.getElementById("rp-remember").checked;
+  const rememberPeer = visible("rp-remember-peer-field") && document.getElementById("rp-remember-peer").checked;
+
+  // Captured before the row is mutated: siblings inherit the method only if
+  // they were wrong in the same way this row was (see applyToSiblings).
+  const originalMethod = row.Method;
+  // Only the rows still ticked in the list — the user may have kept 7 of 10
+  // and left the other 3 in the queue for individual attention.
+  const picked = new Set(selectedSiblingIds());
+  const siblings = picked.size
+    ? findSiblings(row).filter(r => picked.has(String(r.transaction_id)))
+    : [];
 
   row.Category = category;
   row["Sub-category"] = subCategory;
   row.Method = method;
+  row[REVIEW_NOTE] = reviewNote;
+  // Local time, not toISOString() — a review saved at 00:30 in Lisbon should
+  // be stamped with today's date, not yesterday's UTC one.
+  row[REVIEWED_AT] = localIsoTimestamp();
 
-  let remembered = false;
-  if (remember) {
+  // The decision and its reasoning go into durable memory immediately, before
+  // any download button is touched: closing the tab now must not lose it.
+  recordReviewDecision(row, reviewNote);
+
+  const messages = [`Saved as ${category} / ${subCategory}.`];
+  if (reviewNote) messages.push(`Note kept with the transaction.`);
+
+  let undo = null;
+  if (siblings.length) {
+    undo = applyToSiblings(siblings, row, { category, subCategory, method, originalMethod });
+    const offered = findSiblings(row).length + siblings.length;   // findSiblings now excludes the applied ones
+    const left = offered - siblings.length;
+    messages.push(`Applied to ${siblings.length} of ${offered} item(s) with the same description`
+                  + (left ? `; ${left} left in the queue.` : "."));
+  }
+
+  if (rememberMerchant) {
     const keywords = document.getElementById("rp-keyword").value
       .split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
     if (keywords.length) {
-      overrides.push({ keywords, type: "expense", category, sub_category: subCategory, method });
-      overridesDirty = true;
-      document.getElementById("btn-download-overrides").disabled = false;
-      applyOverridesToStore();
-      remembered = true;
+      upsertOverride({ keywords, type: txnType, category, sub_category: subCategory, method, peer: false });
+      messages.push(`Remembered for future "${keywords.join(", ")}" matches.`);
+    } else {
+      messages.push(`No keyword given, so nothing was remembered.`);
     }
+  }
+
+  if (rememberPeer) {
+    const keywords = document.getElementById("rp-peer-keyword").value
+      .split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+    if (keywords.length) {
+      // No method on a peer rule: the rail is observed per-transaction, and
+      // pinning it here would relabel a bank transfer as MBWay (or vice
+      // versa) on the strength of a name.
+      upsertOverride({ keywords, type: txnType, category, sub_category: subCategory, method: "", peer: true });
+      messages.push(`Transfers matching "${keywords.join(", ")}" will now default to ${category} / ${subCategory} ` +
+                    `— a matching purpose keyword still wins over it.`);
+    } else {
+      messages.push(`No counterparty name given, so nothing was remembered.`);
+    }
+  }
+
+  if (rememberMerchant || rememberPeer) {
+    const changed = applyOverridesToStore();
+    if (changed) messages.push(`${changed} other matching transaction(s) updated.`);
   }
 
   document.getElementById("btn-download").disabled = false;
   closeReviewPanel();
   renderAll();
-  setStatus(
-    `Saved as ${category} / ${subCategory}.` +
-    (remembered ? ` Remembered for future "${document.getElementById("rp-keyword").value}" matches too.` : "")
-  );
+  setStatus(messages.join(" "), false, undo);
 });
+
+// Save an ad-hoc batch: the same category onto a hand-picked set of rows that
+// have nothing in common the computer can see. Writes categories and the note
+// the user typed (they did look at these, unlike auto-applied siblings), and
+// deliberately writes NO rule of any kind — the reason those rows belonged
+// together was an evening, not a property of the merchants or counterparties.
+function saveBatchReview() {
+  const panel = document.getElementById("review-panel");
+  const ids = new Set(JSON.parse(panel.dataset.batchIds || "[]"));
+  const rows = store.filter(r => ids.has(String(r.transaction_id)));
+  if (!rows.length) { closeReviewPanel(); return; }
+
+  const category = document.getElementById("rp-category").value;
+  if (!category) {
+    setStatus("Pick a category for the selected transactions before saving.", true);
+    document.getElementById("rp-category").focus();
+    return;
+  }
+  const subCategory = document.getElementById("rp-subcategory").value;
+  if (!assertValidPair(rows[0].Type, category, subCategory)) return;
+
+  const method = document.getElementById("rp-method").value;   // "" = keep each row's own
+  const reviewNote = document.getElementById("rp-review-note").value.trim();
+  const stamp = localIsoTimestamp();
+
+  const snapshot = rows.map(r => ({
+    row: r,
+    previous: { Category: r.Category, "Sub-category": r["Sub-category"], Method: r.Method,
+                [REVIEW_NOTE]: r[REVIEW_NOTE], [REVIEWED_AT]: r[REVIEWED_AT] },
+    hadDecision: Object.prototype.hasOwnProperty.call(reviewDecisions, r.transaction_id),
+  }));
+
+  for (const r of rows) {
+    r.Category = category;
+    r["Sub-category"] = subCategory;
+    if (method) r.Method = method;
+    r[REVIEW_NOTE] = reviewNote;
+    r[REVIEWED_AT] = stamp;
+    recordReviewDecision(r, reviewNote);
+  }
+
+  reviewSelection.clear();
+  document.getElementById("btn-download").disabled = false;
+  closeReviewPanel();
+  renderAll();
+  setStatus(
+    `Categorized ${rows.length} transaction(s) as ${category} / ${subCategory}. ` +
+    `No rule was saved — this grouping applies to these transactions only.`,
+    false,
+    { label: `Undo (${rows.length})`, action: () => {
+        for (const entry of snapshot) {
+          Object.assign(entry.row, entry.previous);
+          if (!entry.hadDecision) forgetDecision(entry.row.transaction_id);
+        }
+        persistReviewsToLocalStorage();
+        saveReviewsToDataFolder();
+        renderAll();
+        setStatus(`Reverted ${snapshot.length} transaction(s) to the queue.`);
+      } });
+}
+
+// Copy a review's *conclusion* onto rows with the identical description —
+// category and sub-category only. The note is deliberately left behind: it
+// records what the user actually looked at, and stamping "physio, 2nd
+// session" onto eight rows nobody opened would fabricate provenance in the
+// one file built to preserve it. Each derived row gets a marker instead.
+//
+// Returns an undo handle that restores every field it touched.
+function applyToSiblings(siblings, sourceRow, { category, subCategory, method, originalMethod }) {
+  const marker = `${DERIVED_MARKER} from the review of ${sourceRow.Date} ` +
+                 `(same description) — not individually checked`;
+  const snapshot = siblings.map(r => ({
+    row: r,
+    previous: {
+      Category: r.Category, "Sub-category": r["Sub-category"], Method: r.Method,
+      [REVIEW_NOTE]: r[REVIEW_NOTE], [REVIEWED_AT]: r[REVIEWED_AT],
+    },
+    hadDecision: Object.prototype.hasOwnProperty.call(reviewDecisions, r.transaction_id),
+  }));
+
+  for (const r of siblings) {
+    r.Category = category;
+    r["Sub-category"] = subCategory;
+    // Only when the sibling was wrong in the same way the source row was.
+    // Identical descriptions detect identical rails, so this is normally a
+    // no-op — but it must not overwrite a method that differs for a reason.
+    if (r.Method === originalMethod) r.Method = method;
+    r[REVIEW_NOTE] = marker;
+    r[REVIEWED_AT] = localIsoTimestamp();
+    reviewDecisions[r.transaction_id] = {
+      category, sub_category: subCategory, method: r.Method,
+      review_note: marker,
+      reviewed_at: r[REVIEWED_AT],
+      notes: r.Notes || "",
+      derived_from: sourceRow.transaction_id,
+    };
+  }
+  reviewsDirty = true;
+  persistReviewsToLocalStorage();
+  saveReviewsToDataFolder();
+  document.getElementById("btn-download-reviews").disabled = false;
+
+  return {
+    label: `Undo (${siblings.length})`,
+    action: () => {
+      for (const entry of snapshot) {
+        Object.assign(entry.row, entry.previous);
+        if (!entry.hadDecision) forgetDecision(entry.row.transaction_id);
+      }
+      persistReviewsToLocalStorage();
+      saveReviewsToDataFolder();
+      renderAll();
+      setStatus(`Reverted ${snapshot.length} auto-applied item(s). The transaction you reviewed ` +
+                `directly keeps its category and note.`);
+    },
+  };
+}
 
 document.getElementById("btn-download-overrides").addEventListener("click", () => {
   downloadBlob(new Blob([overridesToCsvSafeJson()], { type: "application/json" }), "category_overrides.json");
-  setStatus("Downloaded updated category_overrides.json.");
+  setStatus("Downloaded updated category_overrides.json — save it over data/category_overrides.json so CLI ingestion picks up the same rules.");
+});
+
+document.getElementById("btn-download-reviews").addEventListener("click", () => {
+  const json = JSON.stringify(reviewDecisions, null, 2) + "\n";
+  downloadBlob(new Blob([json], { type: "application/json" }), "review_decisions.json");
+  reviewsDirty = false;
+  setStatus(`Downloaded review_decisions.json — ${Object.keys(reviewDecisions).length} decision(s). ` +
+            `Save it over data/review_decisions.json so scripts/ingest_monthly.py re-applies them too. ` +
+            `This file contains your notes and descriptions — it's gitignored like transactions.csv.`);
+});
+
+// Losing an unsaved review to a stray tab close is exactly the failure this
+// feature exists to prevent — localStorage already has it, but the shared
+// JSON file won't until it's downloaded.
+window.addEventListener("beforeunload", (e) => {
+  if (!reviewsDirty && !overridesDirty && document.getElementById("btn-download").disabled) return;
+  e.preventDefault();
+  e.returnValue = "";
 });
 
 function refreshFilters() {
@@ -1248,25 +3636,86 @@ function refreshFilters() {
   yearSel.innerHTML = `<option value="all">All years</option>` + years.map(y => `<option value="${y}">${y}</option>`).join("");
   if (years.map(String).includes(current)) yearSel.value = current;
 
+  refreshCategoryFilters();
+}
+
+// The category and sub-category filters come from the TAXONOMY, not from the
+// values the store happens to contain. Two reasons: an empty category is worth
+// being able to select (that is how you notice nothing was ever filed under
+// Educação), and a store value that has drifted out of the taxonomy must not
+// quietly become a legitimate-looking filter option — the Data health panel is
+// where those belong.
+//
+// When a type is selected the lists narrow to that type's categories, since
+// income and expense share no category but "Outros".
+function refreshCategoryFilters() {
+  const typeF = document.getElementById("type-filter").value;
+  const types = typeF ? [typeF] : [TYPE_EXPENSE, TYPE_INCOME];
+  const cats = [...new Set(types.flatMap(t => Object.keys(TAXONOMY[t] || {})))];
+
   const catSel = document.getElementById("cat-filter");
-  const cats = [...new Set(store.map(r => r.Category))].sort();
-  const currentCat = catSel.value;
-  catSel.innerHTML = `<option value="">All categories</option>` + cats.map(c => `<option value="${c}">${c}</option>`).join("");
-  if (cats.includes(currentCat)) catSel.value = currentCat;
+  const current = catSel.value;
+  catSel.innerHTML = `<option value="">All categories</option>` +
+    cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  if (cats.includes(current)) catSel.value = current;
+  refreshSubcategoryFilter();
+}
+
+function refreshSubcategoryFilter() {
+  const typeF = document.getElementById("type-filter").value;
+  const category = document.getElementById("cat-filter").value;
+  const sel = document.getElementById("subcat-filter");
+  const current = sel.value;
+
+  const types = typeF ? [typeF] : [TYPE_EXPENSE, TYPE_INCOME];
+  // No category chosen: offer every sub-category in scope, so you can jump
+  // straight to "Ginásio" without first remembering it lives under Desporto.
+  const subs = [...new Set(
+    types.flatMap(t => Object.entries(TAXONOMY[t] || {})
+      .filter(([c]) => !category || c === category)
+      .flatMap(([, list]) => list))
+  )];
+
+  sel.innerHTML = `<option value="">All sub-categories</option>` +
+    subs.map(sub => `<option value="${esc(sub)}">${esc(sub)}</option>`).join("");
+  sel.value = subs.includes(current) ? current : "";
+}
+
+// Each breakdown chart gets the same numbers as a table behind its "View as
+// table" disclosure — the only form in which they're available to a screen
+// reader, or to anyone who needs the exact figure rather than a bar length.
+function renderBreakdownWithTable(canvasId, chartKey, breakdown, palette, tableId, label, unit) {
+  renderCategoryChart(canvasId, chartKey, breakdown, palette);
+  const total = breakdown.reduce((sum, [, amount]) => sum + amount, 0);
+  renderDataTable(tableId, [unit, "Amount", "% of total"],
+    breakdown.map(([name, amount]) => [name, fmtEur2(amount),
+      total ? `${(amount / total * 100).toFixed(0)}%` : "—"]), label);
+  describeChart(canvasId, breakdown.length
+    ? `${label}: ${breakdown.length} ${unit.toLowerCase()} totalling ${fmtEur(total)}, led by ${breakdown[0][0]} at ${fmtEur(breakdown[0][1])}.`
+    : `${label}: nothing to show for the current filters.`);
 }
 
 function renderAll() {
   refreshFilters();
   const rows = filteredRows();
+  const overview = computeMonthlyOverview(rows);
   renderTiles(rows);
-  renderTrendChart(computeMonthlyOverview(rows));
-  renderNetChart(computeMonthlyOverview(rows));
-  renderCategoryChart("chart-expense-cat", "expCat", computeCategoryBreakdown(rows, TYPE_EXPENSE), EXPENSE_CATEGORIES);
-  renderCategoryChart("chart-income-cat", "incCat", computeCategoryBreakdown(rows, TYPE_INCOME), INCOME_CATEGORIES);
-  renderCategoryChart("chart-expense-method", "expMethod", computeMethodBreakdown(rows, TYPE_EXPENSE), METHODS);
-  renderCategoryChart("chart-income-method", "incMethod", computeMethodBreakdown(rows, TYPE_INCOME), METHODS);
+  renderTrendChart(overview);
+  renderNetChart(overview);
+  renderBreakdownWithTable("chart-expense-cat", "expCat", computeCategoryBreakdown(rows, TYPE_EXPENSE),
+    EXPENSE_CATEGORIES, "expense-cat-table", "Expenses by category", "Category");
+  renderBreakdownWithTable("chart-income-cat", "incCat", computeCategoryBreakdown(rows, TYPE_INCOME),
+    INCOME_CATEGORIES, "income-cat-table", "Income by category", "Category");
+  renderBreakdownWithTable("chart-expense-method", "expMethod", computeMethodBreakdown(rows, TYPE_EXPENSE),
+    METHODS, "expense-method-table", "Expenses by payment method", "Method");
+  renderBreakdownWithTable("chart-income-method", "incMethod", computeMethodBreakdown(rows, TYPE_INCOME),
+    METHODS, "income-method-table", "Income by payment method", "Method");
+  renderAnalysis(analysisRows());
+  renderMonthOverMonth(rows);
+  renderYearly(rows);
   renderTable();
   renderReviewQueue();
+  renderDataHealth(store);
 }
 
 // ---------------------------------------------------------------------
@@ -1278,30 +3727,45 @@ function renderAll() {
 function populateManualCategoryOptions() {
   const type = document.getElementById("mf-type").value;
   const cats = type === TYPE_INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-  document.getElementById("mf-category").innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join("");
+  document.getElementById("mf-category").innerHTML =
+    cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  populateManualSubcategoryOptions();
+}
+
+// Re-stocked from whichever category is selected, so the pair is valid by
+// construction — the same rule the review panel follows.
+function populateManualSubcategoryOptions() {
+  const type = document.getElementById("mf-type").value;
+  const category = document.getElementById("mf-category").value;
+  const subs = ((typeof TAXONOMY === "undefined" ? {} : TAXONOMY[type]) || {})[category] || [];
+  const sel = document.getElementById("mf-subcategory");
+  sel.innerHTML = subs.map(sub => `<option value="${esc(sub)}">${esc(sub)}</option>`).join("");
+  sel.value = subs[0] || "";
 }
 
 function initManualForm() {
-  document.getElementById("mf-date").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("mf-date").value = localDateIso();
   populateManualCategoryOptions();
   const methodSel = document.getElementById("mf-method");
-  methodSel.innerHTML = METHODS.map(m => `<option value="${m}">${m}</option>`).join("");
+  methodSel.innerHTML = METHODS.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
   methodSel.value = "Dinheiro";
 }
 
 document.getElementById("mf-type").addEventListener("change", populateManualCategoryOptions);
+document.getElementById("mf-category").addEventListener("change", populateManualSubcategoryOptions);
 
 document.getElementById("mf-add").addEventListener("click", () => {
   const type = document.getElementById("mf-type").value;
   const dateIso = document.getElementById("mf-date").value;
   const amount = parseFloat(document.getElementById("mf-amount").value);
   const category = document.getElementById("mf-category").value;
-  const subCategory = document.getElementById("mf-subcategory").value.trim() || category;
+  const subCategory = document.getElementById("mf-subcategory").value;
   const method = document.getElementById("mf-method").value;
   const notes = document.getElementById("mf-notes").value.trim();
 
   if (!dateIso) { setStatus("Pick a date for the manual transaction.", true); return; }
   if (!amount || amount <= 0) { setStatus("Enter an amount greater than zero.", true); return; }
+  if (!assertValidPair(type, category, subCategory)) return;
 
   const [year, month] = dateIso.split("-").map(Number);
   const signedAmount = type === TYPE_INCOME ? amount : -amount;
@@ -1314,6 +3778,8 @@ document.getElementById("mf-add").addEventListener("click", () => {
     Method: method,
     "Amount (€)": Math.round(amount * 100) / 100,
     Notes: notes,
+    [REVIEW_NOTE]: "",
+    [REVIEWED_AT]: "",
     Month: month,
     Year: year,
     "Source File": "Manual entry",
@@ -1333,9 +3799,16 @@ document.getElementById("mf-add").addEventListener("click", () => {
   renderAll();
 });
 
+// Order matters: the review memory has to be in place before the store
+// finishes loading, so decisions are re-applied on arrival rather than one
+// render later. Each is independently resilient to the others failing.
 initManualForm();
-tryAutoLoad();
-tryAutoLoadOverrides();
+renderAll();
+(async () => {
+  await tryAutoLoadReviews();
+  await tryAutoLoadOverrides();
+  await tryAutoLoad();
+})();
 </script>
 </body>
 </html>

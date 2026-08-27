@@ -1,1 +1,210 @@
-[]
+[
+  {
+    "keywords": [
+      "feirense"
+    ],
+    "type": "expense",
+    "category": "Desporto",
+    "sub_category": "Ginásio",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "ericeira"
+    ],
+    "type": "expense",
+    "category": "Lazer",
+    "sub_category": "Roupa",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "tiki taka",
+      "auditorio",
+      "mau maria",
+      "mao maria",
+      "galerias",
+      "plano b",
+      "castle cocktail",
+      "azulejo",
+      "maus habitos"
+    ],
+    "type": "expense",
+    "category": "Lazer",
+    "sub_category": "Saídas Noite/Bares",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "getyourguide tickets"
+    ],
+    "type": "expense",
+    "category": "Lazer",
+    "sub_category": "Férias",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "more club"
+    ],
+    "type": "expense",
+    "category": "Lazer",
+    "sub_category": "Saídas Noite/Bares",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "oficinafrancesinha"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Take-away/Delivery",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "hamburgariarua"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Restaurantes",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "yuko"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Restaurantes",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "nortada"
+    ],
+    "type": "expense",
+    "category": "Lazer",
+    "sub_category": "Saídas Noite/Bares",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "galito dourado"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Take-away/Delivery",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "testinha arouca"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Restaurantes",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "lovecraft"
+    ],
+    "type": "expense",
+    "category": "Lazer",
+    "sub_category": "Saídas Noite/Bares",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "pf petfiestas"
+    ],
+    "type": "expense",
+    "category": "Prendas",
+    "sub_category": "Natal",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "oficina francesinha"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Restaurantes",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "tikitaka"
+    ],
+    "type": "expense",
+    "category": "Lazer",
+    "sub_category": "Saídas Noite/Bares",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "gasoleo"
+    ],
+    "type": "expense",
+    "category": "Geral",
+    "sub_category": "Gasóleo",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "gasoleo freixo"
+    ],
+    "type": "expense",
+    "category": "Geral",
+    "sub_category": "Gasóleo",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "madureiras gondomar"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Take-away/Delivery",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "pa porto zi"
+    ],
+    "type": "expense",
+    "category": "Geral",
+    "sub_category": "Gasóleo",
+    "method": "Cartão",
+    "peer": false
+  },
+  {
+    "keywords": [
+      "casa mia"
+    ],
+    "type": "expense",
+    "category": "Alimentação",
+    "sub_category": "Restaurantes",
+    "method": "Cartão",
+    "peer": false
+  }
+]

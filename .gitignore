@@ -8,6 +8,12 @@ data/*.dec
 *.xlsx
 *.xls
 
+# Manual review decisions (finance_tracker/reviews.py) — keyed by transaction
+# hash, but the values hold your own notes and the original bank descriptions,
+# so this is personal data. Unlike category_overrides.json (merchant keywords
+# only), it is never meant to be committed.
+data/review_decisions.json
+
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
