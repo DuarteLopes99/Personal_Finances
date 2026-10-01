@@ -76,6 +76,11 @@ const TAXONOMY = {
       "Natal",
       "Outros"
     ],
+    "Cabelo": [
+      "Cabeleireiro/Barbeiro",
+      "Produtos",
+      "Outros"
+    ],
     "Outros": [
       "Por Classificar",
       "Outros",
@@ -337,7 +342,7 @@ const LEGACY_ALIASES = {
 const COLUMNS = ["transaction_id", "Date", "Type", "Category", "Sub-category", "Method", "Amount (€)", "Notes", "Review Note", "Reviewed At", "Month", "Year", "Source File"];
 const TYPE_INCOME = "Income";
 const TYPE_EXPENSE = "Expense";
-const EXPENSE_CATEGORIES = ["Saúde", "Investimentos", "Alimentação", "Lazer", "Educação", "Geral", "Desporto", "Prendas", "Outros"];
+const EXPENSE_CATEGORIES = ["Saúde", "Investimentos", "Alimentação", "Lazer", "Educação", "Geral", "Desporto", "Prendas", "Cabelo", "Outros"];
 const INCOME_CATEGORIES = ["Salário", "Salário Alimentação", "Transferências Pessoais", "Subsídios", "Reembolsos", "Outros"];
 const METHODS = ["Cartão", "MBWay", "Transferência", "Débito Direto", "Cartão Alimentação", "Dinheiro", "Levantamento", "Não especificado"];
 const UNSPECIFIED_METHOD = "Não especificado";

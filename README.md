@@ -143,8 +143,8 @@ Reviewed At, Month, Year, Source File`
 
 ### Category taxonomy
 
-`finance_tracker/taxonomy.py` declares **every Category / Sub-category pair that may exist** — 9
-expense categories, 6 income categories, 55 valid pairs — and everything that writes a
+`finance_tracker/taxonomy.py` declares **every Category / Sub-category pair that may exist** — 10
+expense categories, 6 income categories, 63 valid pairs — and everything that writes a
 classification is validated against it: the built-in rules at import time, user overrides before
 they are saved, and the dashboard's review panel through a per-category picker rather than a text
 box.
@@ -161,12 +161,13 @@ were just people's names. Each splits one real spending line into two chart bars
 | **Saúde** | Lentes · Fisioterapia · Farmácia · Consultas/Exames · Outros |
 | **Investimentos** | ETFs/DEGIRO · PPR · Outros |
 | **Alimentação** | Compras · Restaurantes · Café/Padaria · Take-away/Delivery · Outros |
-| **Lazer** | Escape Room · Saídas Noite/Bares · Férias · Cinema/Espetáculos · LEGO/Pop-Culture/Memorabilia · Roupa · Subscrições · Compras Online · Outros |
+| **Lazer** | Escape Room · Saídas Noite/Bares · Férias · Cinema/Espetáculos · LEGO/Pop-Culture/Memorabilia · Roupa · Subscrições · Compras Online · Gaming · Outros |
 | **Educação** | Cursos/Formação · Livros/Material · Outros |
-| **Geral** | Gasóleo · Carro · Telemóvel · Transportes · Casa · Seguros · Comissões e Impostos · Outros |
+| **Geral** | Gasóleo · Carro · Telemóvel · Transportes · Casa · Seguros · Comissões e Impostos · Revolut · TradeRepublic · Outros |
 | **Desporto** | Futebol · Corrida · Ginásio · Equipamento · Outros |
 | **Prendas** | Aniversário · Natal · Outros |
-| **Outros** | Por Classificar · Levantamento · Transferências Pessoais |
+| **Cabelo** | Cabeleireiro/Barbeiro · Produtos · Outros |
+| **Outros** | Por Classificar · Outros · Levantamento · Transferências Pessoais |
 
 **Income**
 
@@ -177,15 +178,38 @@ were just people's names. Each splits one real spending line into two chart bars
 | **Transferências Pessoais** | MBWay · Transferência |
 | **Subsídios** | Desemprego · Outros |
 | **Reembolsos** | IRS · Seguros · Estornos |
-| **Outros** | Por Classificar |
+| **Outros** | Por Classificar · Outros |
 
-Two categories are shaped deliberately:
+Three categories are shaped deliberately:
 
-- **`Outros`** (expense) has no catch-all. `Por Classificar` *is* the review queue; `Levantamento`
-  and `Transferências Pessoais` are settled facts that simply aren't spending categories — cash
-  withdrawn, money sent to a named person — and counting them as backlog would make the queue look
-  permanently unfixable.
+- **`Outros`** carries both kinds of "don't know". `Por Classificar` *is* the review queue and
+  should trend to zero; `Outros`, `Levantamento` and `Transferências Pessoais` are settled facts
+  that simply aren't spending categories — genuinely miscellaneous, cash withdrawn, money sent to a
+  named person — and counting them as backlog would make the queue look permanently unfixable.
 - **`Investimentos`** is money moving pocket-to-pocket, so it is excluded from every expense total.
+- **`Cabelo`** is empty on purpose. It was added so the spend has somewhere to go the first time it
+  happens, instead of landing in `Geral/Outros` and being invisible from then on. It deliberately
+  has **no keyword rules**: a rule would retro-classify transactions already reviewed into other
+  categories, silently rewriting answers that were given by hand. It fills up through the review
+  panel and the manual-entry form, and a rule can be added once real descriptions exist.
+
+#### One colour per category
+
+Chart colours are keyed on the category **name**, from a fixed nine-hue palette plus a reserved
+neutral for `Outros` — which is the residual bucket rather than an identity, so it wears ink rather
+than a hue. Two consequences worth knowing:
+
+- **No two categories share a colour.** Colours used to come from `palette[index % 8]`, and with
+  more than eight expense categories that wrapped: `Outros` (index 8) came out the same blue as
+  `Saúde` (index 0), in every chart showing both.
+- **A colour follows its category, not its rank.** Filtering to a year with no `Educação` spend
+  does not repaint everything below it, so the same category is the same colour in the doughnut,
+  the stacked trend and the single-category line.
+
+The palette is checked, not eyeballed: every adjacent pair clears a colour-blindness separation
+floor (ΔE ≥ 8 in OKLab under simulated protanopia and deuteranopia) and a normal-vision floor
+(ΔE ≥ 15), in both light and dark themes. Three light-theme hues sit under 3:1 contrast against the
+page, which is why every chart also ships a "View as table" disclosure.
 
 ### How a description reaches a pair
 
@@ -298,8 +322,9 @@ Alimentação / Restaurantes and being told "54 transactions" answers half a que
 ### The review panel
 
 Clicking *Review* opens a side panel to set the Category / Sub-category / Method by hand. Saving
-edits that transaction in place, stamps `Reviewed At`, and "Download updated transactions.csv"
-persists it.
+edits that transaction in place, stamps `Reviewed At`, and — when you launched through the desktop
+shortcut or `scripts/serve_dashboard.py` — writes the store back to `data/transactions.csv` on its
+own. "Download updated transactions.csv" is the fallback for a tab opened without the server.
 
 It opens differently depending on what it's looking at, because the three states are genuinely
 different questions:
@@ -326,8 +351,9 @@ in three places at once:
   (and is searchable from the Transactions table, alongside the description);
 - **your browser's local storage**, written the instant you press Save — so closing the tab
   without downloading anything doesn't lose the decision;
-- **`data/review_decisions.json`** (via "Download review_decisions.json"), keyed by
-  `transaction_id`, which is the copy the Python side reads.
+- **`data/review_decisions.json`**, written straight to disk through the local server (the
+  "Download review_decisions.json" button is the fallback when there isn't one), keyed by
+  `transaction_id` — this is the copy the Python side reads.
 
 Because the key is the transaction's own hash, a decision re-attaches itself to the right row
 whenever that row reappears: re-ingesting a file, rebuilding the store from scratch, or restoring
@@ -476,6 +502,35 @@ Every one of these has a Python equivalent in `finance_tracker/overview.py`
 (`compute_month_over_month`, `compute_savings_rate`, `compute_subcategory_breakdown`,
 `compute_category_by_month`, `detect_recurring`, `project_month_end`) — see the notebook.
 
+### Tracking one category over time
+
+Every card above answers a question about a *month*. **Track one category over time** answers the
+other question — "how has this one thing been going?" — for a single Category or Sub-category
+picked from a dropdown. The stacked *Category spend by month* chart technically contains that
+answer, but reading one category out of nine stacked segments is guessing rather than reading.
+
+Three views of the same selection:
+
+| Mode | Answers |
+|---|---|
+| **Amount per month** | is this drifting up or down |
+| **Share of that month's total** | is it growing *relative to* everything else, or did the whole month just get bigger |
+| **Running total** | what has this cost me altogether so far |
+
+Alongside the line it reports the total, the average per month, the highest month, the latest
+month against the one before it, and how many of the months in range had any activity at all.
+
+Two deliberate choices:
+
+- **Months with no activity are drawn as zero, not skipped.** "We stopped spending on this in
+  March" is the finding; joining February to June would draw a straight line through it.
+- **The picker is built from the taxonomy, not from what the store contains**, so a category with
+  nothing in it yet is still selectable and honestly shows a flat zero. That is how `Cabelo` looks
+  today — an empty line is a real answer, and better than the category being invisible until its
+  first haircut.
+
+It follows the year filter and the meal-card toggle, so "All years" gives the full history.
+
 ### Data health
 
 A short panel of non-destructive consistency checks, because these are the problems the charts
@@ -557,16 +612,17 @@ python3 scripts/serve_dashboard.py          # --port 8792, --no-browser
 A local HTTP server is required either way: under a plain `file://` origin the browser blocks the
 dashboard's auto-load of `data/transactions.csv`, so it comes up empty. From there you can also pick "Add monthly
 file(s) (xlsx/csv)" — selecting multiple files at once is fine — to categorize and merge new
-months directly in the browser, then "Download updated transactions.csv" to save the result back
-over `data/transactions.csv`. "🗑 Clear all data" resets the in-browser working copy to empty (it
-only touches what's loaded in the tab — nothing on disk changes unless you download afterward),
-so you can rebuild from scratch the same way — your saved review decisions are kept and re-applied
-as the rows come back. The "Needs Review" panel lets you fix anything the rules
+months directly in the browser; the merged result is written back to `data/transactions.csv`
+automatically, and "Download updated transactions.csv" remains as a manual export.
+"🗑 Clear all data" resets the in-browser working copy to empty (it only touches what's loaded in
+the tab — clearing also switches the automatic save off, so nothing on disk changes unless you
+download afterward), so you can rebuild from scratch the same way — your saved review decisions
+are kept and re-applied as the rows come back. The "Needs Review" panel lets you fix anything the rules
 couldn't categorize, and the Transactions table's category / sub-category / review-state filters
 let you audit and correct what they *did* categorize (see "Reviewing and correcting
-categorizations"); "Download updated category_overrides.json" saves any rules
-you taught it that way, and "Download review_decisions.json" saves the review decisions and notes,
-so both are picked up by future CLI ingestion too. Category and Method breakdowns sit side by side
+categorizations"); rules you teach it and the review decisions and notes you record are both
+saved into `data/` as you go, so future CLI ingestion picks them up without any button press (the
+two Download buttons still work, and are the only route when there is no local server). Category and Method breakdowns sit side by side
 for both Income and Expenses ("Analyzing by payment method" above), the "Monthly analysis" card
 adds the month-by-month view ("Monthly spending analytics" below), and the "Exclude Cartão
 Alimentação (meal card)" checkbox next to the year filter toggles the meal-allowance card in or
@@ -575,8 +631,8 @@ out of every chart and the stat tiles at once ("Excluding the meal-allowance car
 **Adding a transaction manually** — for anything with no bank export at all (cash you received or
 spent, a gift, etc.), use the "Add a transaction manually" form: pick Income or Expense, fill in
 the date, amount, category, and any notes, and it's added straight into the store — same charts,
-same table, same "Download updated transactions.csv" afterward. It goes through the same
-duplicate check as an upload, so double-clicking "Add" by accident on identical values won't
+same table, and saved to `data/transactions.csv` the same way an upload is. It goes through the
+same duplicate check as an upload, so double-clicking "Add" by accident on identical values won't
 create two rows (see "Avoiding duplicates" below).
 
 **Notebook** — `notebook/pipeline_walkthrough.ipynb` runs the same load → categorize → merge →

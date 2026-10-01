@@ -22,8 +22,9 @@ Four things this does that `python3 -m http.server` alone doesn't:
 - **Binds to localhost only.** The default http.server listens on every
   interface, which puts your financial data on the local network. This
   doesn't.
-- **Accepts PUT for the two data files**, so the dashboard can save your work
-  to `data/` on its own. Without this, a review lives in the browser's
+- **Accepts PUT for the three data files**, so the dashboard can save your work
+  to `data/` on its own: the review decisions, the rules you teach it, and the
+  transaction store itself. Without this, a review lives in the browser's
   localStorage until you remember to click a download button — and localStorage
   is scoped to the exact origin, so a launch that lands on port 8793 instead of
   8792 silently shows an empty history. See SAVEABLE below.
@@ -283,7 +284,8 @@ def main():
     print(f"  {describe_store()}")
     print(f"  Serving {REPO_ROOT}")
     print(f"  {url}")
-    print("  Reviews and rules are saved straight into data/ — no download button needed.")
+    print("  Reviews, rules and new transactions are saved straight into data/ — "
+          "no download button needed.")
     print("\nLeave this window open while you use the dashboard. Press Ctrl-C (or close "
           "the window) to stop the server.\n")
 

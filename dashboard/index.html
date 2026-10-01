@@ -28,6 +28,22 @@
     --border:         rgba(11,11,11,0.10);
     --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
     --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
+    /* Slot 9 (teal) extends the eight-hue set because the expense taxonomy now
+       holds nine real categories. Measured in, not eyeballed: it sits in the
+       aqua->blue hue gap at OKLCH H 215, and against its stack neighbours
+       (Prendas red, then the Outros neutral) it clears CVD dE 16.2 and
+       normal-vision dE 29.8 — both well over the 8 / 15 floors. */
+    --series-9: #0494ad;
+    /* Reserved NEUTRAL, never a categorical hue: the residual "Outros" bucket.
+       Outros is the catch-all, not an identity, so it takes ink rather than a
+       hue — which is also what freed a slot instead of inventing a tenth colour.
+       This is the fix for Outros and Saúde both rendering blue: colours were
+       assigned by list index modulo eight, and Outros sat at index 8. */
+    --series-other:   #433f37;
+    /* A Category the taxonomy no longer knows (legacy store value). Distinct
+       from --series-other so a drifted value can't masquerade as Outros; the
+       Data health panel is where it gets named. */
+    --series-unknown: #85827b;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
@@ -48,6 +64,10 @@
       --border:         rgba(255,255,255,0.10);
       --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
       --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+      /* Stepped for the dark surface and re-validated there, not flipped. */
+      --series-9: #00a2bd;
+      --series-other:   #b2ada4;
+      --series-unknown: #6e6b64;
     }
   }
   :root[data-theme="dark"] {
@@ -68,6 +88,9 @@
     --border:         rgba(255,255,255,0.10);
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
     --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+    --series-9: #00a2bd;
+    --series-other:   #b2ada4;
+    --series-unknown: #6e6b64;
   }
 
 
@@ -533,6 +556,40 @@
     </section>
   </div>
 
+  <!-- One line, one question: "how has THIS been going?"
+       Every other chart on the page answers a question about a month — what it
+       totalled, what drove it, how it compares. None of them answer the question
+       you ask about a single category, which is whether it is drifting up over
+       time. The stacked Category-spend-by-month chart technically contains the
+       answer, but reading one category out of nine stacked segments is not
+       reading, it is guessing.
+       Built from the TAXONOMY rather than from the values the store happens to
+       contain, so a category with no transactions yet (Cabelo, today) is
+       selectable and honestly shows a flat zero instead of vanishing from the
+       picker. -->
+  <section class="card" aria-labelledby="h-focus">
+    <h2 id="h-focus">Track one category over time</h2>
+    <div class="analysis-controls">
+      <label for="focus-pick">Category or sub-category
+        <select id="focus-pick"></select>
+      </label>
+      <label for="focus-mode">Show
+        <select id="focus-mode">
+          <option value="amount">Amount per month</option>
+          <option value="share">Share of that month&rsquo;s total</option>
+          <option value="cumulative">Running total</option>
+        </select>
+      </label>
+    </div>
+    <div class="stat-grid" id="focus-stats"></div>
+    <div class="chart-box" style="margin-top:14px;"><canvas id="chart-focus"></canvas></div>
+    <p class="table-caption" id="focus-note"></p>
+    <details class="table-toggle">
+      <summary>View as table</summary>
+      <div id="focus-table"></div>
+    </details>
+  </section>
+
   <!-- Per-month, so it sits with the other per-month cards. Two questions in
        one place: what were the biggest single spends, and which of them are
        unusual *for this household* rather than merely large. A €70 supermarket
@@ -850,12 +907,42 @@
 // Taxonomy, categorization rules and the sub-category -> category map all
 // come from dashboard/rules.js, generated from the Python source of truth.
 // See scripts/generate_dashboard_rules.py.
-const SERIES = ["--series-1","--series-2","--series-3","--series-4","--series-5","--series-6","--series-7","--series-8"];
+// Nine categorical hues in a fixed order, and two roles that are deliberately
+// not hues at all.
+//
+// The order is the colour-blindness safety mechanism, so it never changes, and
+// it is NEVER cycled. Cycling is precisely the bug this replaced: colours came
+// out of `SERIES[index % 8]`, and the expense taxonomy has more than eight
+// categories — so Outros, at index 8, wrapped around to the same blue as Saúde
+// at index 0. Two unrelated categories, one colour, in every chart that shows
+// both. Any category added past the eighth would have collided the same way.
+const SERIES = ["--series-1","--series-2","--series-3","--series-4","--series-5",
+                "--series-6","--series-7","--series-8","--series-9"];
+
+// `Outros` is the residual bucket — an admission that nothing more specific
+// applies — not an identity like Saúde or Lazer. So it wears ink rather than a
+// hue, which reads correctly next to the real categories AND is what freed a
+// slot instead of inventing a tenth colour for a nine-category taxonomy.
+const NEUTRAL_ROLE = "--series-other";
+// A Category the taxonomy no longer contains (a legacy value still sitting in
+// the store). Its own neutral, distinct from Outros', so a drifted value cannot
+// quietly pass for the catch-all in a chart. Data health is where it gets named.
+const UNKNOWN_ROLE = "--series-unknown";
 
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-function colorFor(list, category) {
-  const i = list.indexOf(category);
-  return cssVar(SERIES[i >= 0 ? i % SERIES.length : SERIES.length - 1]);
+
+// One colour per NAME, resolved identically by every chart.
+//
+// Keyed on the name and its fixed position in `list`, never on the name's rank
+// within whatever subset this particular chart happened to build — so filtering
+// a year that has no Educação spend does not repaint every category below it,
+// and the same category is the same colour in the doughnut, the stack and the
+// evolution line.
+function colorFor(list, name) {
+  if (name === UNCLASSIFIED_CATEGORY) return cssVar(NEUTRAL_ROLE);
+  const i = list.indexOf(name);
+  if (i < 0 || i >= SERIES.length) return cssVar(UNKNOWN_ROLE);
+  return cssVar(SERIES[i]);
 }
 
 // ---------------------------------------------------------------------
@@ -1326,6 +1413,49 @@ function saveOverridesToDataFolder() {
                           "application/json");
 }
 
+// ---------------------------------------------------------------------
+// Saving the store itself.
+//
+// Review decisions and taught rules were already durable. The transactions
+// were not — and serve_dashboard.py has allowed PUT to /data/transactions.csv
+// all along (it is listed in SAVEABLE), so the server half of this existed
+// while nothing ever sent the request. The only route to disk was the
+// "Download transactions.csv" button plus remembering to move the file into
+// data/ by hand.
+//
+// That made the two halves of one click durable to different degrees: add a
+// cash expense or ingest a new month, reload before downloading, and the rows
+// were gone — while the review decision attached to them survived in
+// review_decisions.json, waiting for transactions that no longer existed. Same
+// asymmetry the overrides comment above describes, one layer down.
+//
+// Guards, because the failure mode here is losing the whole store rather than
+// one decision:
+//   - armed only once a store has actually been loaded (see onStoreLoaded), so
+//     a page that came up empty because the fetch failed cannot write its empty
+//     array over the real file;
+//   - never writes an empty store, for the same reason;
+//   - disarmed by "Clear store", which is a deliberate emptying of the session
+//     and explicitly promises not to touch the disk.
+let storeSaveArmed = false;
+let storeSaveTimer = null;
+
+function saveStoreToDataFolder() {
+  if (!storeSaveArmed || !store.length) return Promise.resolve(false);
+  return saveToDataFolder("transactions.csv", sortedCsvText(), "text/csv");
+}
+
+// Debounced: one batch review rewrites twenty rows in a single click, and that
+// is one save of the file, not twenty.
+function markStoreDirty() {
+  if (!storeSaveArmed) return;
+  if (storeSaveTimer) clearTimeout(storeSaveTimer);
+  storeSaveTimer = setTimeout(() => {
+    storeSaveTimer = null;
+    saveStoreToDataFolder();
+  }, 400);
+}
+
 function persistReviewsToLocalStorage() {
   try {
     window.localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviewDecisions));
@@ -1347,6 +1477,9 @@ function recordReviewDecision(row, reviewNote) {
   reviewsDirty = true;
   persistReviewsToLocalStorage();
   saveReviewsToDataFolder();
+  // The decision also rewrote this row's Category/Sub-category/Method, so the
+  // store is now stale on disk as well as the decision file.
+  markStoreDirty();
   document.getElementById("btn-download-reviews").disabled = false;
 }
 
@@ -1455,6 +1588,9 @@ function mergeIntoStore(newRows) {
     store.push(r);
     added++;
   }
+  // Both callers — the monthly upload and the manual-entry form — used to leave
+  // new rows in memory only.
+  if (added) markStoreDirty();
   return { added, dup };
 }
 
@@ -1554,7 +1690,7 @@ async function tryAutoLoadOverrides() {
               `data/category_overrides.json — click "Download updated category_overrides.json" ` +
               `and save it there so the CLI sees them too.`, true);
   }
-  if (store.length && applyOverridesToStore() > 0) renderAll();
+  if (store.length && applyOverridesToStore() > 0) { markStoreDirty(); renderAll(); }
 }
 
 // The shared file and localStorage are now BOTH written on every save, so
@@ -1593,7 +1729,7 @@ async function tryAutoLoadReviews() {
   if (Object.keys(reviewDecisions).length) {
     document.getElementById("btn-download-reviews").disabled = false;
   }
-  if (store.length && applyReviewsToStore() > 0) renderAll();
+  if (store.length && applyReviewsToStore() > 0) { markStoreDirty(); renderAll(); }
 }
 
 function onStoreLoaded() {
@@ -1601,10 +1737,18 @@ function onStoreLoaded() {
   document.getElementById("btn-download-enc").disabled = false;
   document.getElementById("btn-clear").disabled = false;
   harvestReviewsFromStore();
+  // A store is on the page, so writing it back can no longer mean writing an
+  // empty array over the real file. Armed before the two apply passes below, on
+  // purpose: whatever they change is a change worth keeping.
+  storeSaveArmed = true;
   // Reviews last: a manual decision is the user's own answer and must not be
   // second-guessed by a keyword rule that happens to also match the row.
-  applyOverridesToStore();
-  applyReviewsToStore();
+  const reclassified = applyOverridesToStore();
+  const restored = applyReviewsToStore();
+  // Only when something actually changed, which makes this self-limiting: the
+  // first load after a rule or decision is added writes the file, and the next
+  // load finds nothing left to apply and writes nothing.
+  if (reclassified || restored) markStoreDirty();
   renderAll();
 }
 
@@ -1624,6 +1768,11 @@ document.getElementById("btn-clear").addEventListener("click", () => {
   if (!ok) return;
 
   store = [];
+  // The confirmation above promises that nothing on disk is touched. Disarming
+  // is what makes that true — otherwise the next review or manual entry would
+  // save this deliberately-emptied store over data/transactions.csv.
+  storeSaveArmed = false;
+  if (storeSaveTimer) { clearTimeout(storeSaveTimer); storeSaveTimer = null; }
   pendingAdded = 0; pendingDuplicate = 0;
   document.getElementById("btn-download").disabled = true;
   document.getElementById("btn-download-enc").disabled = true;
@@ -1716,6 +1865,9 @@ document.getElementById("file-monthly").addEventListener("change", async (e) => 
   // or in a rebuild) comes back already answered instead of re-entering the
   // review queue — the whole point of keeping decisions outside the store.
   const restored = applyReviewsToStore();
+  // Covers the all-duplicates case: mergeIntoStore added nothing, so it queued
+  // no save, but re-applied decisions still changed rows.
+  if (restored) markStoreDirty();
   setStatus(
     `${files.length} file(s): ${perFile.join("; ")}. ` +
     `Session total: +${pendingAdded} added / ${pendingDuplicate} duplicates skipped.` +
@@ -1787,6 +1939,10 @@ document.getElementById("btn-clear-filters").addEventListener("click", () => {
 });
 document.getElementById("analysis-month").addEventListener("change", () => renderAnalysis(analysisRows()));
 document.getElementById("analysis-baseline").addEventListener("change", () => renderAnalysis(analysisRows()));
+// Only the one card re-renders: re-running renderAll() would rebuild every
+// chart on the page to change one line, and would also reset the picker.
+document.getElementById("focus-pick").addEventListener("change", () => renderFocusTrend(filteredRows()));
+document.getElementById("focus-mode").addEventListener("change", () => renderFocusTrend(filteredRows()));
 
 // ---------------------------------------------------------------------
 // Derived data + rendering
@@ -2525,7 +2681,11 @@ function renderTopSubcategories(rows, a) {
       labels: breakdown.map(b => b.label),
       datasets: [{
         data: breakdown.map(b => b.amount),
-        backgroundColor: breakdown.map((b, i) => cssVar(SERIES[i % SERIES.length])),
+        // One hue for every bar, not a cycled rainbow. Each bar is a different
+        // sub-category and the y-axis already names it, so colour here would be
+        // re-encoding the label — and with a limit of 10 the old
+        // `SERIES[i % 8]` handed bars 9 and 10 the same colours as bars 1 and 2.
+        backgroundColor: cssVar(SERIES[0]),
         borderRadius: 4, maxBarThickness: 18,
       }],
     },
@@ -2538,6 +2698,269 @@ function renderTopSubcategories(rows, a) {
     breakdown.map(b => [b.label, fmtEur2(b.amount), String(b.count),
                         a.spending ? `${(b.amount / a.spending * 100).toFixed(0)}%` : "—"]),
     `Largest sub-categories in ${monthLabel(a.key)}`);
+}
+
+// ---------------------------------------------------------------------
+// One category (or sub-category) over time
+//
+// Every other chart here answers a question about a *month* — what it totalled,
+// what drove it, how it compares. None of them answer the question you ask
+// about a single category, which is whether it is drifting upward. The stacked
+// Category-spend-by-month chart contains that answer in principle, but reading
+// one category out of nine stacked segments is guessing, not reading.
+//
+// The picker is built from the TAXONOMY rather than from the values the store
+// happens to contain, for the same reason the transaction filters are: a
+// category with nothing in it yet is precisely the one worth being able to
+// select. Building it from observed values would hide Cabelo until its first
+// haircut — backwards, because a flat zero line is both the honest answer and
+// the proof that the new category is wired through.
+// ---------------------------------------------------------------------
+
+// The selection round-trips through an <option value>, so it is one string.
+// Type is part of it because income and expense share the category name
+// "Outros": without it, selecting Outros would silently add a refund to an
+// unexplained payment and plot the sum.
+function focusKey(type, category, sub) {
+  return sub ? `${type}|sub|${category}|${sub}` : `${type}|cat|${category}`;
+}
+
+function parseFocusKey(value) {
+  const [type, kind, category, sub] = String(value || "").split("|");
+  if (!type || !kind || !category) return null;
+  return { type, kind, category, sub: kind === "sub" ? (sub || null) : null };
+}
+
+function focusOptionList() {
+  const out = [];
+  for (const type of [TYPE_EXPENSE, TYPE_INCOME]) {
+    for (const [category, subs] of Object.entries(TAXONOMY[type] || {})) {
+      out.push({ type, category, sub: null, label: `${category} (whole category)`,
+                 value: focusKey(type, category) });
+      for (const sub of subs) {
+        out.push({ type, category, sub, label: `${category} / ${sub}`,
+                   value: focusKey(type, category, sub) });
+      }
+    }
+  }
+  return out;
+}
+
+// Opening on the biggest expense category rather than whichever one happens to
+// sort first: "Saúde, €0" is a poor first thing to show someone. Only used when
+// there is no selection to preserve — an explicit choice always survives a
+// re-render.
+function defaultFocusValue(rows) {
+  const totals = computeCategoryBreakdown(rows, TYPE_EXPENSE)
+    .filter(([category]) => category !== UNCLASSIFIED_CATEGORY);
+  const category = (totals[0] && totals[0][0]) || EXPENSE_CATEGORIES[0];
+  return focusKey(TYPE_EXPENSE, category);
+}
+
+function refreshFocusOptions(rows) {
+  const sel = document.getElementById("focus-pick");
+  const options = focusOptionList();
+  const previous = sel.value;
+
+  const groups = new Map();
+  for (const option of options) {
+    const heading = `${option.type === TYPE_INCOME ? "Income" : "Expense"} · ${option.category}`;
+    if (!groups.has(heading)) groups.set(heading, []);
+    groups.get(heading).push(option);
+  }
+  sel.innerHTML = [...groups.entries()].map(([heading, items]) =>
+    `<optgroup label="${esc(heading)}">` +
+    items.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("") +
+    `</optgroup>`).join("");
+
+  const values = new Set(options.map(o => o.value));
+  sel.value = values.has(previous) ? previous : defaultFocusValue(rows);
+}
+
+// `isSpending` is deliberately NOT applied here. It exists to keep transfers
+// into Investimentos out of *spending* totals, which is right for those charts
+// — but someone who selects Investimentos wants to see the transfers they
+// made, and filtering them out would draw a flat zero for a category they know
+// holds money.
+function focusRows(rows, sel) {
+  return rows.filter(r =>
+    r.Type === sel.type &&
+    String(r.Category) === sel.category &&
+    (!sel.sub || String(r["Sub-category"] || "") === sel.sub));
+}
+
+function computeFocusSeries(rows, sel) {
+  // Every month in range, not only the months this selection appears in: a
+  // category that stopped three months ago should show three zeroes, because
+  // "we stopped spending on this" is the finding. Dropping the empty months
+  // would join March to June and draw a straight line through the gap.
+  const keys = allMonthKeys(rows);
+  const matching = focusRows(rows, sel);
+  const byMonth = new Map();
+  for (const r of matching) {
+    const k = monthKey(r);
+    const bucket = byMonth.get(k) || { amount: 0, count: 0 };
+    bucket.amount += Number(r["Amount (€)"]) || 0;
+    bucket.count++;
+    byMonth.set(k, bucket);
+  }
+
+  let running = 0;
+  const perMonth = keys.map(k => {
+    const bucket = byMonth.get(k) || { amount: 0, count: 0 };
+    // Denominator is the month's whole total for this Type, so a share is
+    // always a fraction of something that includes the selection and can never
+    // exceed 100% — which a "share of spending" base could, for Investimentos.
+    const base = sumAmount(monthRows(rows, k).filter(r => r.Type === sel.type));
+    running += bucket.amount;
+    return {
+      key: k, amount: bucket.amount, count: bucket.count, cumulative: running,
+      share: base ? bucket.amount / base * 100 : null,
+    };
+  });
+  return { keys, perMonth, matching };
+}
+
+const FOCUS_MODES = {
+  amount:     { label: "Amount per month",  unit: "€",  pick: m => m.amount },
+  share:      { label: "Share of month",    unit: "%",  pick: m => (m.share === null ? null : m.share) },
+  cumulative: { label: "Running total",     unit: "€",  pick: m => m.cumulative },
+};
+
+function renderFocusTrend(rows) {
+  destroyChart("focus");
+  const picker = document.getElementById("focus-pick");
+  const statsEl = document.getElementById("focus-stats");
+  const noteEl = document.getElementById("focus-note");
+  const sel = parseFocusKey(picker.value);
+  const mode = FOCUS_MODES[document.getElementById("focus-mode").value] || FOCUS_MODES.amount;
+
+  if (!sel) {
+    statsEl.innerHTML = "";
+    noteEl.textContent = "";
+    renderDataTable("focus-table", ["Month"], []);
+    return;
+  }
+
+  const label = sel.sub ? `${sel.category} / ${sel.sub}` : sel.category;
+  const { keys, perMonth, matching } = computeFocusSeries(rows, sel);
+
+  if (!keys.length) {
+    statsEl.innerHTML = `<p style="color:var(--text-secondary);font-size:13px;margin:0;">
+      No transactions loaded yet — load the store or add a monthly file to track a category.</p>`;
+    noteEl.textContent = "";
+    renderDataTable("focus-table", ["Month"], []);
+    describeChart("chart-focus", "No data loaded.");
+    return;
+  }
+
+  const total = perMonth.reduce((sum, m) => sum + m.amount, 0);
+  const active = perMonth.filter(m => m.count > 0).length;
+  const peak = perMonth.reduce((best, m) => (m.amount > best.amount ? m : best), perMonth[0]);
+  const latest = perMonth[perMonth.length - 1];
+  const previous = perMonth.length > 1 ? perMonth[perMonth.length - 2] : null;
+
+  // Direction in words as well as colour — a red number alone means nothing to
+  // a colour-blind reader or a screen reader. Same convention as the Monthly
+  // analysis card.
+  let deltaText = "no earlier month", deltaCls = "";
+  if (previous) {
+    if (!previous.amount) {
+      deltaText = latest.amount ? `up from nothing` : `still nothing`;
+      deltaCls = latest.amount ? "up" : "";
+    } else {
+      const pct = (latest.amount / previous.amount - 1) * 100;
+      deltaText = `${fmtPct(pct)} (${pct >= 0 ? "more than" : "less than"} ${fmtEur(previous.amount)})`;
+      deltaCls = pct >= 0 ? "up" : "down";
+    }
+  }
+
+  const stats = [
+    { label: `Total ${sel.type === TYPE_INCOME ? "received" : "spent"}`, value: fmtEur2(total),
+      sub: `${matching.length} transaction(s) over ${keys.length} month(s)` },
+    { label: "Average per month", value: fmtEur2(total / keys.length),
+      sub: `every month counted, including the empty ones` },
+    { label: "Highest month", value: fmtEur2(peak.amount),
+      sub: peak.amount ? monthLabel(peak.key) : "nothing recorded yet" },
+    { label: "Latest month", value: fmtEur2(latest.amount), sub: monthLabel(latest.key) },
+    { label: "vs previous month", value: deltaText, cls: deltaCls,
+      sub: previous ? monthLabel(previous.key) : "no earlier month in range" },
+    { label: "Months with activity", value: `${active} of ${keys.length}`,
+      sub: active ? `first in ${monthLabel(perMonth.find(m => m.count > 0).key)}` : "never used yet" },
+  ];
+  statsEl.innerHTML = stats.map(st => `
+    <div class="stat">
+      <div class="label">${esc(st.label)}</div>
+      <div class="value ${st.cls ? "delta " + st.cls : ""}">${esc(st.value)}</div>
+      <div class="sub">${esc(st.sub)}</div>
+    </div>`).join("");
+
+  // The category's own colour, so this line is the same hue as that category is
+  // in every other chart on the page. A sub-category borrows its parent's.
+  const color = colorFor(sel.type === TYPE_INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES,
+                         sel.category);
+  const values = perMonth.map(mode.pick);
+
+  charts.focus = new Chart(document.getElementById("chart-focus"), {
+    type: "line",
+    data: {
+      labels: keys.map(monthLabel),
+      datasets: [{
+        label, data: values,
+        borderColor: color, backgroundColor: color + "1a",
+        borderWidth: 2, pointRadius: 4, pointBackgroundColor: color,
+        // A single series needs no legend box: the heading and the picker above
+        // already name it.
+        fill: true, tension: 0.25, spanGaps: false,
+      }],
+    },
+    options: baseChartOptions({
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: cssVar("--surface-1"), titleColor: cssVar("--text-primary"),
+          bodyColor: cssVar("--text-secondary"), borderColor: cssVar("--border"), borderWidth: 1,
+          callbacks: {
+            label: (ctx) => {
+              const m = perMonth[ctx.dataIndex];
+              if (mode.unit === "%") {
+                return m.share === null ? `${label}: no ${sel.type.toLowerCase()} that month`
+                                        : `${label}: ${m.share.toFixed(1)}% of the month`;
+              }
+              const value = mode.pick(m);
+              return `${label}: ${fmtEur2(value)}` +
+                     (m.count ? ` · ${m.count} transaction(s)` : " · nothing recorded");
+            },
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: cssVar("--gridline") },
+             ticks: { color: cssVar("--text-muted"), font: { size: 11 } } },
+        y: { grid: { color: cssVar("--gridline") }, beginAtZero: true,
+             ticks: { color: cssVar("--text-muted"), font: { size: 11 },
+                      callback: (v) => (mode.unit === "%" ? `${v}%` : fmtEur(v)) } },
+      },
+    }),
+  });
+
+  describeChart("chart-focus", total
+    ? `${label} by month, ${mode.label.toLowerCase()}: ${fmtEur(total)} in total across ` +
+      `${keys.length} month(s), highest in ${monthLabel(peak.key)} at ${fmtEur(peak.amount)}.`
+    : `${label} by month: nothing recorded in any of the ${keys.length} month(s) in range.`);
+
+  noteEl.textContent = total
+    ? `Follows the year filter and the meal-card toggle at the top of the page. ` +
+      `Months with no ${label} activity are shown as zero rather than skipped.`
+    : `Nothing has been filed under ${label} yet, so every month reads zero. ` +
+      `The line is drawn anyway — this is what a category looks like before its first transaction.`;
+
+  renderDataTable("focus-table",
+    ["Month", `Amount (${sel.type})`, "Transactions", "Share of month", "Running total"],
+    perMonth.map(m => [monthLabel(m.key), fmtEur2(m.amount), String(m.count),
+                       m.share === null ? "—" : `${m.share.toFixed(1)}%`,
+                       fmtEur2(m.cumulative)]),
+    `${label} per month`);
 }
 
 function renderRecurring(rows) {
@@ -3480,7 +3903,7 @@ document.getElementById("rp-save").addEventListener("click", () => {
 
   if (rememberMerchant || rememberPeer) {
     const changed = applyOverridesToStore();
-    if (changed) messages.push(`${changed} other matching transaction(s) updated.`);
+    if (changed) { markStoreDirty(); messages.push(`${changed} other matching transaction(s) updated.`); }
   }
 
   document.getElementById("btn-download").disabled = false;
@@ -3544,6 +3967,7 @@ function saveBatchReview() {
         }
         persistReviewsToLocalStorage();
         saveReviewsToDataFolder();
+        markStoreDirty();
         renderAll();
         setStatus(`Reverted ${snapshot.length} transaction(s) to the queue.`);
       } });
@@ -3588,6 +4012,7 @@ function applyToSiblings(siblings, sourceRow, { category, subCategory, method, o
   reviewsDirty = true;
   persistReviewsToLocalStorage();
   saveReviewsToDataFolder();
+  markStoreDirty();
   document.getElementById("btn-download-reviews").disabled = false;
 
   return {
@@ -3599,6 +4024,7 @@ function applyToSiblings(siblings, sourceRow, { category, subCategory, method, o
       }
       persistReviewsToLocalStorage();
       saveReviewsToDataFolder();
+      markStoreDirty();
       renderAll();
       setStatus(`Reverted ${snapshot.length} auto-applied item(s). The transaction you reviewed ` +
                 `directly keeps its category and note.`);
@@ -3624,7 +4050,13 @@ document.getElementById("btn-download-reviews").addEventListener("click", () => 
 // feature exists to prevent — localStorage already has it, but the shared
 // JSON file won't until it's downloaded.
 window.addEventListener("beforeunload", (e) => {
-  if (!reviewsDirty && !overridesDirty && document.getElementById("btn-download").disabled) return;
+  // A store the server has accepted is not unsaved work, so it no longer
+  // triggers the prompt — only one still waiting on the debounce, or a session
+  // with no server to save to (file:// origin), where the download button
+  // really is the only way out.
+  const storeUnsaved = !document.getElementById("btn-download").disabled &&
+                       (storeSaveTimer !== null || serverSaveAvailable !== true);
+  if (!reviewsDirty && !overridesDirty && !storeUnsaved) return;
   e.preventDefault();
   e.returnValue = "";
 });
@@ -3711,6 +4143,8 @@ function renderAll() {
   renderBreakdownWithTable("chart-income-method", "incMethod", computeMethodBreakdown(rows, TYPE_INCOME),
     METHODS, "income-method-table", "Income by payment method", "Method");
   renderAnalysis(analysisRows());
+  refreshFocusOptions(rows);
+  renderFocusTrend(rows);
   renderMonthOverMonth(rows);
   renderYearly(rows);
   renderTable();

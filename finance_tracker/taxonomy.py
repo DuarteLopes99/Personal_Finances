@@ -128,6 +128,18 @@ EXPENSE_TAXONOMY = {
         "Natal",
         CATCH_ALL_SUB,
     ),
+    # Personal grooming. Added as an empty category on purpose: it exists so the
+    # spend has somewhere to go the first time it happens, rather than landing in
+    # Geral/Outros and being invisible afterwards. Deliberately NOT given keyword
+    # rules in categorize.py — a rule would retro-classify transactions that were
+    # already reviewed into other categories, which is a silent rewrite of
+    # answers the user already gave. It fills up through the review panel and
+    # manual entry, and a rule can be added later once real descriptions exist.
+    "Cabelo": (
+        "Cabeleireiro/Barbeiro",
+        "Produtos",
+        CATCH_ALL_SUB,
+    ),
     # The honest-ignorance category, holding four distinct things:
     #   Por Classificar          — temporary: nothing matched, needs a human
     #   Outros                   — settled: genuinely miscellaneous, no better home
