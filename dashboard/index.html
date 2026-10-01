@@ -5,27 +5,68 @@
 <title>Personal Finance Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+  /* --- Type ------------------------------------------------------------
+     Public Sans, self-hosted (dashboard/vendor/fonts, SIL OFL 1.1 — see
+     OFL.txt there). Latin subset only: it covers Portuguese and the euro
+     sign; anything else falls back to the system stack glyph by glyph. */
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 400; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 500; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-500-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 600; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-600-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 700; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-700-normal.woff2") format("woff2"); }
+
+  /* --- Design tokens -----------------------------------------------------
+     The roles below are the whole palette for chrome, text and status. The
+     categorical --series-* hues are NOT mapped onto them: they are a
+     colour-blind-validated set of nine (see README, "One colour per
+     category"), and folding nine categories onto five role colours would put
+     two categories on one hue — the exact bug the series order exists to
+     prevent. Role uses that used to borrow a series hue (buttons, links, the
+     count badge, "more"/"less" deltas) now use the role tokens.
+
+     Contrast, measured: every text role clears 4.5:1 on --surface in both
+     themes. In light, --over (4.41) and --done (3.98) fall short on --ground,
+     so text in those colours only ever sits on a surface. White on --accent
+     is 6.9:1 in light but 2.3:1 in dark, hence --on-accent. */
   :root {
     color-scheme: light;
-    --surface-1:      #fcfcfb;
-    --page-plane:     #f9f9f7;
-    --text-primary:   #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted:     #898781;
-    --gridline:       #e1e0d9;
-    --baseline:       #c3c2b7;
-    --good:           #006300;
-    --warn:           #a34400;
-    /* Reserved status palette — never reused as a series colour. Three bands
-       only: a fourth (status-serious #ec835a) sits ΔE 13.6 from warning in
-       normal vision, below the 15 floor, so it was measured out rather than
-       eyeballed in. Sub-3:1 warning is the documented relaxation, and its
-       mitigation is the icon + text label the meter always shows. */
-    --status-critical: #d03b3b;
+    --ground:      #EEF1EF;
+    --rail:        #F7F9F8;
+    --surface:     #FFFFFF;
+    --ink:         #16211D;
+    --muted:       #52605A;
+    --line:        #D5DCD8;
+    --hairline:    #E3E8E5;
+    --accent:      #2A5A9C;
+    --accent-soft: #DCE6F2;
+    --on-accent:   #FFFFFF;
+    --over:        #B4530A;
+    --done:        #5E7D6E;
+    --ai:          #7A4FA0;
+    --baseline:    #9AA6A0;
+
+    /* Older names, kept so nothing that references them breaks. */
+    --surface-1:      var(--surface);
+    --page-plane:     var(--ground);
+    --text-primary:   var(--ink);
+    --text-secondary: var(--muted);
+    /* Was a lighter grey under 4.5:1; folded into --muted rather than kept. */
+    --text-muted:     var(--muted);
+    --gridline:       var(--hairline);
+    --border:         var(--line);
+    --good:           var(--done);
+    --warn:           var(--over);
+    --focus:          var(--accent);
+    /* Meter bands. Three, not four (see renderMeter): over budget and healthy
+       take the role colours; the amber middle band has no role counterpart
+       and stays, carried by its icon and word as before. */
+    --status-critical: var(--over);
     --status-warning:  #fab219;
-    --status-good:     #0ca30c;
-    --focus:          #0b57d0;
-    --border:         rgba(11,11,11,0.10);
+    --status-good:     var(--done);
+
     --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
     --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
     /* Slot 9 (teal) extends the eight-hue set because the expense taxonomy now
@@ -45,23 +86,24 @@
        Data health panel is where it gets named. */
     --series-unknown: #85827b;
   }
+  /* Dark: same hues, lightness lifted for text roles and lowered for planes. */
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
       color-scheme: dark;
-      --surface-1:      #1a1a19;
-      --page-plane:     #0d0d0d;
-      --text-primary:   #ffffff;
-      --text-secondary: #c3c2b7;
-      --text-muted:     #898781;
-      --gridline:       #2c2c2a;
-      --baseline:       #383835;
-      --good:           #0ca30c;
-      --warn:           #f0a068;
-      --status-critical: #d03b3b;
-      --status-warning:  #fab219;
-      --status-good:     #0ca30c;
-      --focus:          #8ab4f8;
-      --border:         rgba(255,255,255,0.10);
+      --ground:      #0F1513;
+      --rail:        #141B18;
+      --surface:     #19221F;
+      --ink:         #E5EBE8;
+      --muted:       #A6B3AD;
+      --line:        #34413C;
+      --hairline:    #25302C;
+      --accent:      #86ACE3;
+      --accent-soft: #1F3250;
+      --on-accent:   #19221F;
+      --over:        #F0965A;
+      --done:        #8DB3A0;
+      --ai:          #BE9BE0;
+      --baseline:    #6E7B75;
       --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
       --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
       /* Stepped for the dark surface and re-validated there, not flipped. */
@@ -72,20 +114,20 @@
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --surface-1:      #1a1a19;
-    --page-plane:     #0d0d0d;
-    --text-primary:   #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted:     #898781;
-    --gridline:       #2c2c2a;
-    --baseline:       #383835;
-    --good:           #0ca30c;
-    --warn:           #f0a068;
-    --status-critical: #d03b3b;
-    --status-warning:  #fab219;
-    --status-good:     #0ca30c;
-    --focus:          #8ab4f8;
-    --border:         rgba(255,255,255,0.10);
+    --ground:      #0F1513;
+    --rail:        #141B18;
+    --surface:     #19221F;
+    --ink:         #E5EBE8;
+    --muted:       #A6B3AD;
+    --line:        #34413C;
+    --hairline:    #25302C;
+    --accent:      #86ACE3;
+    --accent-soft: #1F3250;
+    --on-accent:   #19221F;
+    --over:        #F0965A;
+    --done:        #8DB3A0;
+    --ai:          #BE9BE0;
+    --baseline:    #6E7B75;
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
     --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
     --series-9: #00a2bd;
@@ -131,10 +173,16 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--page-plane);
-    color: var(--text-primary);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* Every figure on the page lines up in columns. */
+    font-variant-numeric: tabular-nums;
   }
+  button, input, select, textarea { font-family: inherit; font-variant-numeric: tabular-nums; }
+  /* Small stroke icons replace the emoji the buttons used to carry. */
+  .icon-svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
+              stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
   header h1 { font-size: 22px; margin: 0 0 4px; }
   header p { margin: 0 0 20px; color: var(--text-secondary); font-size: 14px; }
@@ -166,23 +214,26 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
   @media (prefers-contrast: more) {
-    :root { --border: rgba(11,11,11,0.45); --text-secondary: #3a3a38; }
+    :root { --line: #6B7872; --hairline: #9AA6A0; --muted: #33403B; }
+  }
+  @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) { --line: #8D9A94; --hairline: #5F6C66; --muted: #CFD9D4; }
   }
 
   .card {
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
   }
   .card + .card { margin-top: 16px; }
-  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--text-secondary); font-weight: 600; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--ink); font-weight: 600; }
 
   .panel-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .panel-row label.filebtn {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
-    font-size: 13px; cursor: pointer; color: var(--text-primary); background: var(--page-plane);
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px;
+    font-size: 14px; font-weight: 500; cursor: pointer; color: var(--ink); background: var(--surface);
   }
   /* The file input is hidden but NOT display:none — that would take it out of
      the tab order and make every "load a file" button keyboard-unreachable.
@@ -197,25 +248,27 @@
   #status-line { font-size: 13px; color: var(--text-secondary); margin-top: 10px; }
   #status-line.warn { color: var(--warn); font-weight: 600; }
   button.primary {
-    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
-    font-size: 13px; cursor: pointer; background: var(--series-1); color: #fff; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+    border: 1px solid var(--accent); border-radius: 10px; padding: 8px 14px;
+    font-size: 14px; cursor: pointer; background: var(--accent); color: var(--on-accent); font-weight: 600;
   }
   button.primary:disabled { opacity: 0.35; cursor: default; }
   button.danger {
-    border: 1px solid var(--series-8); border-radius: 8px; padding: 8px 12px;
-    font-size: 13px; cursor: pointer; background: var(--surface-1); color: var(--series-8); font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+    border: 1px solid var(--over); border-radius: 10px; padding: 8px 14px;
+    font-size: 14px; cursor: pointer; background: var(--surface); color: var(--over); font-weight: 600;
   }
   button.danger:disabled { opacity: 0.35; cursor: default; }
   select {
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
-    font-size: 13px; background: var(--surface-1); color: var(--text-primary);
+    min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px;
+    font-size: 14px; background: var(--surface); color: var(--ink);
   }
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .tile .label { font-size: 12px; color: var(--text-secondary); }
   .tile .value { font-size: 26px; font-weight: 600; margin-top: 4px; }
   .tile .value.pos { color: var(--good); }
-  .tile .value.neg { color: var(--series-8); }
+  .tile .value.neg { color: var(--over); }
 
   .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
@@ -234,13 +287,13 @@
 
   .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
   .filters input[type=text] {
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
-    font-size: 13px; background: var(--page-plane); color: var(--text-primary); min-width: 180px;
+    min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px;
+    font-size: 14px; background: var(--surface); color: var(--ink); min-width: 200px;
   }
   .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--page-plane); color: var(--text-secondary); border: 1px solid var(--border); }
-  .pill.income { color: var(--series-1); }
-  .pill.expense { color: var(--series-2); }
-  .pill.count { color: var(--series-8); border-color: var(--series-8); }
+  .pill.income { color: var(--accent); }
+  .pill.expense { color: var(--ink); }
+  .pill.count { color: var(--surface); background: var(--over); border-color: var(--over); font-weight: 600; }
 
   .manual-hint { font-size: 12px; color: var(--text-muted); margin: -4px 0 12px; }
   .manual-form .mf-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
@@ -249,24 +302,29 @@
   }
   .manual-form label.mf-notes { flex: 1; min-width: 220px; }
   .manual-form select, .manual-form input[type=text], .manual-form input[type=date], .manual-form input[type=number] {
-    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
-    font-size: 13px; background: var(--page-plane); color: var(--text-primary); min-width: 140px;
+    min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px;
+    font-size: 14px; background: var(--surface); color: var(--ink); min-width: 140px;
   }
   .manual-form input[type=text] { min-width: 220px; width: 100%; box-sizing: border-box; }
 
   #review-empty { padding: 8px 0; }
   button.link {
-    background: none; border: 1px solid var(--border); border-radius: 8px;
-    padding: 4px 10px; font-size: 12px; color: var(--series-1); cursor: pointer;
+    display: inline-flex; align-items: center; min-height: 44px;
+    background: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 4px 12px; font-size: 13px; font-weight: 500; color: var(--accent); cursor: pointer;
   }
+  /* Inside table rows and the panel's sibling list a 44px button would make
+     every row of a 500-row table twice as tall, so these are 32px — still
+     above the 24px WCAG minimum target. */
+  td button.link, .sibling-controls button.link { min-height: 32px; }
 
   .panel-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 40;
   }
   .side-panel {
     position: fixed; top: 0; right: 0; height: 100%; width: min(380px, 92vw);
-    background: var(--surface-1); border-left: 1px solid var(--border);
-    box-shadow: -8px 0 24px rgba(0,0,0,0.15); z-index: 41;
+    background: var(--surface); border-left: 1px solid var(--line);
+    z-index: 41;
     padding: 20px; overflow-y: auto; box-sizing: border-box;
   }
   .side-panel h3 { margin: 0 0 4px; font-size: 16px; }
@@ -277,8 +335,8 @@
   }
   .panel-field .readonly { font-size: 13px; color: var(--text-primary); }
   .panel-field select, .panel-field input[type=text] {
-    width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
-    font-size: 13px; background: var(--page-plane); color: var(--text-primary); box-sizing: border-box;
+    width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px;
+    font-size: 14px; background: var(--surface); color: var(--ink); box-sizing: border-box;
   }
   .panel-field textarea {
     width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
@@ -315,7 +373,7 @@
     border: 1px solid var(--border); background: var(--page-plane); color: var(--text-secondary);
   }
   .type-badge {
-    font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    font-size: 12px; font-weight: 700;
     padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor;
   }
   .type-banner.income { border-left: 4px solid var(--series-1); }
@@ -330,24 +388,26 @@
   td.select-cell, th.select-cell { width: 28px; }
   .panel-actions { display: flex; gap: 8px; margin-top: 18px; }
   button.undo {
-    background: none; border: 1px solid var(--border); border-radius: 8px;
-    padding: 3px 10px; font-size: 12px; color: var(--series-1); cursor: pointer; margin-left: 8px;
+    min-height: 44px; background: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 3px 12px; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; margin-left: 8px;
   }
+  .panel-actions button { min-height: 44px; padding: 8px 16px; border-radius: 10px; font-size: 14px; }
+  #rp-cancel { background: var(--surface); color: var(--ink); border: 1px solid var(--line); cursor: pointer; }
 
   /* --- Monthly analysis ---------------------------------------------- */
   .analysis-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 14px; }
   .analysis-controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
   .stat {
-    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--page-plane);
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--surface);
   }
-  .stat .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+  .stat .label { font-size: 13px; color: var(--muted); }
   .stat .value { font-size: 20px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .stat .sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   /* Direction is never carried by colour alone — each delta also states
      "more"/"less" in words, for colour-blind readers and for anyone reading
      this through a screen reader. */
-  .delta.up { color: var(--series-8); }
+  .delta.up { color: var(--over); }
   .delta.down { color: var(--good); }
   .analysis-note { font-size: 12px; color: var(--text-muted); margin: 12px 0 0; }
 
@@ -367,7 +427,7 @@
   /* Derived rows are marked differently from ones a human actually opened —
      the distinction is the whole point of not copying the note. */
   .badge.auto { color: var(--text-muted); border-style: dashed; }
-  .badge.refund { color: var(--series-1); border-color: var(--series-1); }
+  .badge.refund { color: var(--accent); border-color: var(--accent); }
   .row-note { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .table-caption { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
 </style>
@@ -385,22 +445,22 @@
     <h2 id="h-data-source">Data source</h2>
     <div class="panel-row">
       <label class="filebtn">
-        <span aria-hidden="true">📄</span> Load transactions.csv
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg> Load transactions.csv
         <input id="file-store" type="file" accept=".csv">
       </label>
       <label class="filebtn">
-        <span aria-hidden="true">🔒</span> Load encrypted (.enc)
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Load encrypted (.enc)
         <input id="file-store-enc" type="file" accept=".enc">
       </label>
       <label class="filebtn disabled" id="btn-monthly">
-        <span aria-hidden="true">➕</span> Add monthly file(s) (xlsx/csv)
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Add monthly file(s) (xlsx/csv)
         <input id="file-monthly" type="file" accept=".xlsx,.xls,.csv" multiple>
       </label>
-      <button class="danger" id="btn-clear" disabled><span aria-hidden="true">🗑</span> Clear all data</button>
-      <button class="primary" id="btn-download" disabled><span aria-hidden="true">⬇</span> Download updated transactions.csv</button>
-      <button class="primary" id="btn-download-enc" disabled><span aria-hidden="true">🔒</span> Download encrypted (.enc)</button>
-      <button class="primary" id="btn-download-overrides" disabled><span aria-hidden="true">⬇</span> Download updated category_overrides.json</button>
-      <button class="primary" id="btn-download-reviews" disabled><span aria-hidden="true">⬇</span> Download review_decisions.json</button>
+      <button class="danger" id="btn-clear" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg> Clear all data</button>
+      <button class="primary" id="btn-download" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download updated transactions.csv</button>
+      <button class="primary" id="btn-download-enc" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Download encrypted (.enc)</button>
+      <button class="primary" id="btn-download-overrides" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download updated category_overrides.json</button>
+      <button class="primary" id="btn-download-reviews" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download review_decisions.json</button>
     </div>
     <div class="panel-row" style="margin-top:10px;">
       <label class="sr-only" for="year-filter">Filter every chart and table by year</label>
@@ -453,7 +513,7 @@
         <label class="mf-notes" for="mf-notes">Notes
           <input type="text" id="mf-notes" placeholder="e.g. Cash gift from parents">
         </label>
-        <button class="primary" id="mf-add"><span aria-hidden="true">➕</span> Add transaction</button>
+        <button class="primary" id="mf-add"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Add transaction</button>
       </div>
     </div>
   </section>

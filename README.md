@@ -571,7 +571,7 @@ What it *can't* catch: two genuinely different transactions that happen to share
 description, and amount (rare, but possible — e.g. two identical €5 coffees on the same day would
 hash identically and the second would be treated as a duplicate). If you need to start over
 entirely and rebuild from a clean slate — e.g. after experimenting, or to double-check a batch of
-files imports the way you expect — use `scripts/reset_store.py` (CLI) or "🗑 Clear all data"
+files imports the way you expect — use `scripts/reset_store.py` (CLI) or "Clear all data"
 (dashboard), then re-add your files; the same hash-based check applies throughout the rebuild.
 
 ## Usage
@@ -623,7 +623,7 @@ dashboard's auto-load of `data/transactions.csv`, so it comes up empty. From the
 file(s) (xlsx/csv)" — selecting multiple files at once is fine — to categorize and merge new
 months directly in the browser; the merged result is written back to `data/transactions.csv`
 automatically, and "Download updated transactions.csv" remains as a manual export.
-"🗑 Clear all data" resets the in-browser working copy to empty (it only touches what's loaded in
+"Clear all data" resets the in-browser working copy to empty (it only touches what's loaded in
 the tab — clearing also switches the automatic save off, so nothing on disk changes unless you
 download afterward), so you can rebuild from scratch the same way — your saved review decisions
 are kept and re-applied as the rows come back. The "Needs Review" panel lets you fix anything the rules
