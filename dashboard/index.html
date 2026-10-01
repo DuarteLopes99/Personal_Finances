@@ -257,6 +257,9 @@
   .hero-figures dd { margin: 2px 0 0; }
   .hero-figures .figure { display: block; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
   .hero-figures .figure-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .review-import-summary { font-size: 15px; margin: 0 0 12px; max-width: 70ch; }
+  #review-import-auto { font-size: 14px; color: var(--muted); }
+
   .alert-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
   .alert-cards:not(:has(.alert-card:not([hidden]))) { display: none; }
   .alert-card { border-top: 3px solid var(--over); }
@@ -698,6 +701,18 @@
 
       <section class="view" id="view-review" aria-labelledby="h-view-review" hidden>
         <h1 id="h-view-review" tabindex="-1">Review</h1>
+        <!-- What the latest import left you. Deliberately no "Accept all": a
+             mass Reviewed At stamp would make "reviewed" mean "clicked a button"
+             and lock those rows against future rule fixes. "Show them" opens
+             the rule-filed rows for checking instead. -->
+        <section class="card review-import" id="review-import" aria-labelledby="h-review-import" hidden>
+          <h2 id="h-review-import"></h2>
+          <p class="review-import-summary" id="review-import-summary"></p>
+          <div class="panel-row">
+            <span id="review-import-auto"></span>
+            <button class="link" id="btn-import-show" type="button">Show them</button>
+          </div>
+        </section>
         <section class="card" id="review-card" aria-labelledby="h-review">
             <h2 id="h-review">Needs review <span id="review-count" class="pill count"></span></h2>
             <div id="review-empty" style="display:none; color:var(--text-secondary); font-size:13px;">
@@ -976,7 +991,9 @@
             <select id="cat-filter"><option value="">All categories</option></select>
             <label class="sr-only" for="subcat-filter">Filter by sub-category</label>
             <select id="subcat-filter"><option value="">All sub-categories</option></select>
-            <label class="sr-only" for="review-filter">Filter by review state</label>
+            <label class="sr-only" for="import-filter">Filter by import file</label>
+      <select id="import-filter"><option value="">All imports</option></select>
+      <label class="sr-only" for="review-filter">Filter by review state</label>
             <select id="review-filter">
               <option value="">Any review state</option>
               <option value="queued">Awaiting an answer</option>
@@ -2265,6 +2282,7 @@ document.getElementById("type-filter").addEventListener("change", () => { refres
 document.getElementById("cat-filter").addEventListener("change", () => { refreshSubcategoryFilter(); renderTable(); });
 document.getElementById("subcat-filter").addEventListener("change", renderTable);
 document.getElementById("review-filter").addEventListener("change", renderTable);
+document.getElementById("import-filter").addEventListener("change", renderTable);
 // One click from "I want to audit what the rules decided on their own" to a
 // table showing exactly that — the state that is otherwise invisible, because
 // an unchecked auto-classification looks identical to a reviewed one.
@@ -2281,6 +2299,7 @@ document.getElementById("btn-clear-filters").addEventListener("click", () => {
   document.getElementById("type-filter").value = "";
   document.getElementById("cat-filter").value = "";
   document.getElementById("review-filter").value = "";
+  document.getElementById("import-filter").value = "";
   refreshSubcategoryFilter();
   renderTable();
 });
@@ -3743,8 +3762,10 @@ function renderTable() {
   const catF = document.getElementById("cat-filter").value;
   const subF = document.getElementById("subcat-filter").value;
   const reviewF = document.getElementById("review-filter").value;
+  const importF = document.getElementById("import-filter").value;
   const matching = filteredRows()
     .filter(r => !typeF || r.Type === typeF)
+    .filter(r => !importF || String(r["Source File"] ?? "") === importF)
     .filter(r => !catF || r.Category === catF)
     .filter(r => !subF || r["Sub-category"] === subF)
     // "auto" is the interesting one: rows the rules answered on their own and
@@ -3854,7 +3875,60 @@ function refreshSelectionUi() {
   all.indeterminate = count > 0 && count < inQueue.size;
 }
 
+// Every import file with the date of its newest row, newest first. Manual
+// entries are not an import, and a future-dated row (a typo Data health
+// flags) doesn't get to make its file look like next month's import.
+function importFiles() {
+  const today = localDateIso();
+  const latest = new Map();
+  for (const r of store) {
+    const file = String(r["Source File"] ?? "");
+    if (!file || file === "Manual entry") continue;
+    const date = String(r.Date);
+    if (date > today) { if (!latest.has(file)) latest.set(file, ""); continue; }
+    if (!latest.has(file) || date > latest.get(file)) latest.set(file, date);
+  }
+  return [...latest.entries()].map(([file, date]) => ({ file, date }))
+    .sort((a, b) => (b.date.localeCompare(a.date)) || (a.file < b.file ? -1 : 1));
+}
+
+function renderReviewImport() {
+  const card = document.getElementById("review-import");
+  const latest = importFiles()[0];
+  card.hidden = !latest;
+  if (!latest) return;
+  const when = latest.date ? ` ${monthName(latest.date.slice(0, 7))}` : "";
+  const rows = store.filter(r => String(r["Source File"] ?? "") === latest.file);
+  const queued = rows.filter(r => !r[REVIEWED_AT] && isUnclassified(r)).length;
+  const auto = rows.filter(r => !r[REVIEWED_AT] && !isUnclassified(r)).length;
+  const filed = rows.length - queued;
+  document.getElementById("h-review-import").textContent = `Review the${when} import`;
+  document.getElementById("review-import-summary").textContent =
+    `${rows.length} came in from ${latest.file}. ${filed} ${filed === 1 ? "was" : "were"} filed by your rules and ` +
+    `saved reviews. ${queued ? `${queued} need${queued === 1 ? "s" : ""} a decision, below.` : "Nothing needs a decision."}`;
+  document.getElementById("review-import-auto").textContent = auto
+    ? `${auto} filed by your rules and never checked by hand.`
+    : "Every rule-filed row in it has been checked.";
+  const show = document.getElementById("btn-import-show");
+  show.hidden = !auto;
+  show.dataset.file = latest.file;
+}
+
+// Opens the Transactions tab on exactly those rows: this import, filed by a
+// rule, never checked.
+document.getElementById("btn-import-show").addEventListener("click", (e) => {
+  document.getElementById("search-box").value = "";
+  document.getElementById("type-filter").value = "";
+  document.getElementById("cat-filter").value = "";
+  refreshCategoryFilters();
+  document.getElementById("import-filter").value = e.currentTarget.dataset.file || "";
+  document.getElementById("review-filter").value = "auto";
+  renderTable();
+  location.hash = "#/transactions";
+});
+
 function renderReviewQueue() {
+  renderReviewImport();
   const queue = reviewQueue().sort((a, b) => String(b.Date).localeCompare(String(a.Date)));
   document.getElementById("review-count").textContent = queue.length;
   // The sidebar badge is the same number, so the queue is visible from every tab.
@@ -4688,6 +4762,15 @@ function refreshFilters() {
   const current = yearSel.value;
   yearSel.innerHTML = `<option value="all">All years</option>` + years.map(y => `<option value="${y}">${y}</option>`).join("");
   if (years.map(String).includes(current)) yearSel.value = current;
+
+  // Import files, newest import first, so "Show them" on the Review tab can
+  // narrow the table to one file.
+  const importSel = document.getElementById("import-filter");
+  const currentImport = importSel.value;
+  const imports = importFiles();
+  importSel.innerHTML = `<option value="">All imports</option>` +
+    imports.map(f => `<option value="${esc(f.file)}">${esc(f.file)}</option>`).join("");
+  if (imports.some(f => f.file === currentImport)) importSel.value = currentImport;
 
   refreshCategoryFilters();
 }
