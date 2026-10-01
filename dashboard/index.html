@@ -2192,7 +2192,11 @@ function computeCategoryByMonth(rows) {
 const RECURRING_MIN_MONTHS = 3;
 const RECURRING_TOLERANCE = 0.15;
 
+// The one median on the page. An empty list gives 0 rather than NaN: every
+// caller wants a number, and renderMonthOverMonth() can legitimately pass an
+// empty list when no month in the filter has any spending.
 function median(values) {
+  if (!values.length) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
@@ -2991,13 +2995,6 @@ function renderRecurring(rows) {
 // flagging a €3 coffee for being triple a €1 one — technically true, useless.
 const OUTLIER_MULTIPLE = 2.5;
 const OUTLIER_FLOOR = 25;
-
-function median(values) {
-  if (!values.length) return 0;
-  const sorted = values.slice().sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
 
 // Typical amount per Category/Sub-category across everything loaded.
 function subcategoryMedians(rows) {
