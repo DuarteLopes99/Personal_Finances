@@ -17,6 +17,11 @@ This module keeps a second copy of just those decisions, outside the store:
       }
     }
 
+A decision on a refund also carries `"refund": true` (see REFUNDS in
+taxonomy.py). Absent means the row is what its sign says: every decision
+saved before refunds existed was made on a row filed as income, and re-applying
+it puts the row back there even if today's rules would call it a refund.
+
 `transaction_id` is a hash of (date, description, amount), so it is stable
 across rebuilds — re-ingesting the same bank export produces the same id, and
 apply_reviews() puts the decision straight back onto it.
@@ -65,7 +70,8 @@ def save_reviews(reviews: dict, path=DEFAULT_PATH) -> None:
 
 def record_review(reviews: dict, transaction_id: str, category: str, sub_category: str,
                   method: str, review_note: str = "", notes: str = "",
-                  reviewed_at: str = None, derived_from: str = None) -> dict:
+                  reviewed_at: str = None, derived_from: str = None,
+                  refund: bool = False) -> dict:
     """Return a new dict with one review decision recorded (input untouched).
 
     `derived_from` marks a decision that was copied from another row's review
@@ -81,7 +87,26 @@ def record_review(reviews: dict, transaction_id: str, category: str, sub_categor
     }
     if derived_from:
         entry["derived_from"] = str(derived_from)
+    if refund:
+        entry["refund"] = True
     return {**reviews, str(transaction_id): entry}
+
+
+def _set_refund(df: pd.DataFrame, position, refund: bool) -> bool:
+    """Give one row the refund shape the decision asks for. True if it changed.
+
+    Only incoming money can switch: a refund (negative expense) back to income,
+    or income to a refund. A purchase is never turned into a refund, whatever a
+    decision says, because its money went out.
+    """
+    txn_type = df.at[position, schema.TYPE]
+    amount = float(df.at[position, schema.AMOUNT])
+    currently = tx.is_refund_row(txn_type, amount)
+    if refund == currently or not (currently or txn_type == schema.TYPE_INCOME):
+        return False
+    df.at[position, schema.TYPE] = schema.TYPE_EXPENSE if refund else schema.TYPE_INCOME
+    df.at[position, schema.AMOUNT] = -abs(amount) if refund else abs(amount)
+    return True
 
 
 def _placed(txn_type: str, decision: dict) -> tuple:
@@ -138,6 +163,9 @@ def apply_reviews(df: pd.DataFrame, reviews: dict = None) -> tuple:
         if not decision:
             continue
 
+        # The refund shape first: it decides the type, and the type decides
+        # which taxonomy the saved pair is placed against.
+        reshaped = _set_refund(df, position, bool(decision.get("refund")))
         placed = _placed(df.at[position, schema.TYPE], decision)
         if placed is None:
             # The note and timestamp are still worth restoring — they record
@@ -151,7 +179,7 @@ def apply_reviews(df: pd.DataFrame, reviews: dict = None) -> tuple:
             decision.pop("category", None)
             decision.pop("sub_category", None)
 
-        changed = False
+        changed = reshaped
         for key, column in _FIELDS.items():
             value = decision.get(key)
             if value in (None, ""):
@@ -245,6 +273,11 @@ def apply_by_description(df: pd.DataFrame, reviews: dict = None) -> tuple:
         answer = answers.get(_normalized_description(df.at[position, schema.NOTES]))
         if not answer:
             continue
+        # The same description can sit on both sides once a refund has been
+        # marked by hand; an income answer is no answer for a refund row.
+        if not schema.is_valid(df.at[position, schema.TYPE], answer["category"],
+                               answer["sub_category"]):
+            continue
 
         marker = (f"{DERIVED_MARKER} from the review of {answer['source_date']} "
                   f"(same description) — not individually checked")
@@ -259,6 +292,7 @@ def apply_by_description(df: pd.DataFrame, reviews: dict = None) -> tuple:
             method=df.at[position, schema.METHOD], review_note=marker,
             notes=df.at[position, schema.NOTES], reviewed_at=stamp,
             derived_from=answer["source_id"],
+            refund=tx.is_refund_row(df.at[position, schema.TYPE], df.at[position, schema.AMOUNT]),
         ))
         filled += 1
     return df, filled
@@ -284,4 +318,6 @@ def reviews_from_store(df: pd.DataFrame) -> dict:
             "reviewed_at": str(row[schema.REVIEWED_AT]),
             "notes": str(row.get(schema.NOTES, "") or ""),
         }
+        if tx.is_refund_row(row[schema.TYPE], row[schema.AMOUNT]):
+            out[str(row[schema.TRANSACTION_ID])]["refund"] = True
     return out

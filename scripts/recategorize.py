@@ -28,6 +28,11 @@ What it will not touch:
 - **`Outros / Levantamento` and `Outros / Transferências Pessoais`.** They share
   a category with the review queue but are settled facts — cash withdrawn,
   money sent to a named person — not unanswered questions.
+- **A refund already reviewed as income.** Unreviewed income rows whose
+  description is a refund ("Devolução", "Estorno") are converted to a negative
+  expense under the purchase's pair (see REFUNDS in taxonomy.py), or to the
+  review queue when the rules can't name the purchase. A reviewed one stays
+  income: that was the human's answer.
 - **A row it would demote.** If today's rules can't do better than the review
   bucket for a row that already has a real category, the real category stays.
   This fills in blanks; it does not overwrite answers with shrugs.
@@ -51,7 +56,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from finance_tracker import overrides as overrides_mod  # noqa: E402
 from finance_tracker import pipeline, schema  # noqa: E402
 from finance_tracker import taxonomy as tx  # noqa: E402
-from finance_tracker.categorize import categorize_transaction, extract_counterparty  # noqa: E402
+from finance_tracker.categorize import (categorize_transaction, extract_counterparty,  # noqa: E402
+                                        is_refund)
 
 DEFAULT_STORE = Path(__file__).resolve().parent.parent / "data" / "transactions.csv"
 
@@ -75,6 +81,15 @@ def plan_row(row, overrides):
     sub_category = str(row[schema.SUBCATEGORY] or "").strip()
     method = _clean_method(row)
     valid = schema.is_valid(txn_type, category, sub_category)
+
+    # Refunds stored as income before refunds existed. Converting one changes
+    # its type and sign as well as its pair, so it is reported as its own kind
+    # of change, and never applied to a row a human reviewed as income.
+    if (txn_type == schema.TYPE_INCOME and not _is_reviewed(row)
+            and is_refund(row[schema.NOTES], float(row[schema.AMOUNT]))):
+        new_category, new_sub, new_method = categorize_transaction(
+            row[schema.NOTES], float(row[schema.AMOUNT]), overrides=overrides)
+        return new_category, new_sub, new_method, "refund"
 
     # Pass 1 — normalize. An exact (category, sub-category) alias wins over the
     # category-wide "*" one, so `Refeição/Padaria` reaches Café/Padaria while
@@ -173,12 +188,11 @@ def plan_changes(df, overrides):
         row = df.loc[position]
         category, sub_category, method, how = plan_row(row, overrides)
         current = (str(row[schema.CATEGORY]), str(row[schema.SUBCATEGORY]), str(row[schema.METHOD]))
-        if how == "unchanged" and (category, sub_category, method) == current:
-            continue
-        if (category, sub_category, method) == current:
+        if how != "refund" and (category, sub_category, method) == current:
             continue
         changes.append({
-            "position": position, "how": how, "type": row[schema.TYPE],
+            "position": position, "how": how,
+            "type": schema.TYPE_EXPENSE if how == "refund" else row[schema.TYPE],
             "date": row[schema.DATE], "notes": str(row[schema.NOTES])[:42],
             "amount": float(row[schema.AMOUNT]),
             "from": f"{row[schema.CATEGORY]}/{row[schema.SUBCATEGORY]}",
@@ -254,6 +268,9 @@ def main() -> int:
         df.at[c["position"], schema.CATEGORY] = c["category"]
         df.at[c["position"], schema.SUBCATEGORY] = c["sub_category"]
         df.at[c["position"], schema.METHOD] = c["method"]
+        if c["how"] == "refund":
+            df.at[c["position"], schema.TYPE] = schema.TYPE_EXPENSE
+            df.at[c["position"], schema.AMOUNT] = -abs(c["amount"])
     pipeline.save_store(df, args.store)
 
     remaining = _count_invalid(df)

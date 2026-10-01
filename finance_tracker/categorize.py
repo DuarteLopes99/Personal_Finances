@@ -40,6 +40,9 @@ truncated "Vodafo").
 
 Precedence
 ----------
+0. **Refunds** decide the *side*, not the answer: money in with a refund word
+   ("Devolução", "Estorno") is a purchase being undone, so it goes down the
+   expense side of everything below instead of the income side.
 1. **Payment gateways** — Nuvei, Eupago, Stripe & co. resell other merchants,
    so the description names the processor and not what was bought. They are
    forced into the review queue rather than guessed at.
@@ -102,6 +105,26 @@ GATEWAY_PATTERNS = [
 GATEWAY_RE = _compile(GATEWAY_PATTERNS)
 
 # ---------------------------------------------------------------------------
+# Refunds
+# ---------------------------------------------------------------------------
+# Money coming back with one of these words is a purchase being undone, not
+# income (see REFUNDS in taxonomy.py). It is categorized through the EXPENSE
+# path, so `Devolucao Zara Porto` reaches the `zara` rule and is filed under
+# Lazer / Roupa, and the store keeps it as a negative expense. When the rest of
+# the description names nothing the rules know, it lands in the review queue
+# like any other unknown expense, and the human says what was bought.
+REFUND_PATTERNS = ["devolucao", "devolucoes", "estorno", "estornos"]
+REFUND_RE = _compile(REFUND_PATTERNS)
+
+
+def is_refund(description, amount) -> bool:
+    """Whether a raw bank row is a refund: money in, with a refund word.
+
+    Mirrored by isRefund() in dashboard/index.html.
+    """
+    return amount > 0 and bool(REFUND_RE.search(normalize(description)))
+
+# ---------------------------------------------------------------------------
 # INCOME
 # ---------------------------------------------------------------------------
 PURPOSE_INCOME_RULES = [
@@ -118,7 +141,10 @@ PURPOSE_INCOME_RULES = [
      "Reembolsos", "IRS", "Transferência"),
     (["seguro", "seguros", "fidelidade", "tranquilidade", "ageas", "zurich", "generali"],
      "Reembolsos", "Seguros", "Transferência"),
-    (["reembolso", "reembolsos", "estorno", "devolucao", "credito a favor"],
+    # `estorno` and `devolucao` used to be here too. They name a purchase being
+    # undone, so they are refunds now (REFUND_PATTERNS below) and never reach
+    # this table. A bare "reembolso" says nothing about a purchase and stays.
+    (["reembolso", "reembolsos", "credito a favor"],
      "Reembolsos", "Estornos", "Transferência"),
 
     (["desemprego", "subsidio de desemprego", "seguranca social"],
@@ -382,13 +408,15 @@ def _match_override(normalized: str, overrides, txn_type: str, peer: bool = Fals
 def categorize_transaction(description: str, amount: float, overrides=None) -> tuple:
     """Return (category, sub_category, method) for one raw transaction.
 
-    amount > 0 uses the income rules, amount < 0 the expense rules. The result
-    is always a pair that exists in taxonomy.py — when nothing matches, that
-    pair is an honest "don't know" (Outros / Por Classificar) rather than a
-    guess, and the dashboard's review queue is built from exactly those rows.
+    amount > 0 uses the income rules, amount < 0 the expense rules — except a
+    refund (is_refund), which is money in but answers "what was bought", so it
+    goes through the expense rules and gets an expense pair. The result is
+    always a pair that exists in taxonomy.py — when nothing matches, that pair
+    is an honest "don't know" (Outros / Por Classificar) rather than a guess,
+    and the dashboard's review queue is built from exactly those rows.
     """
     normalized = normalize(description)
-    is_income = amount > 0
+    is_income = amount > 0 and not REFUND_RE.search(normalized)
     txn_type = tx.TYPE_INCOME if is_income else tx.TYPE_EXPENSE
     default_rail = "Transferência" if is_income else "Cartão"
 

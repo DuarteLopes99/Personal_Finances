@@ -126,7 +126,10 @@ Every transaction — income or expense — lives in one table with these column
 `transaction_id, Date, Type, Category, Sub-category, Method, Amount (€), Notes, Review Note,
 Reviewed At, Month, Year, Source File`
 
-- **Type** is `Income` or `Expense`.
+- **Type** is `Income` or `Expense`. A **refund** ("Devolução", "Estorno", or anything you mark as
+  one in the review panel) is an `Expense` with a **negative** amount, filed under what was bought,
+  so it lowers that category's spending instead of counting as income. See
+  [docs/categorization.md](docs/categorization.md#refunds-are-negative-spending-not-income).
 - **Method** is the payment rail: `Cartão, MBWay, Transferência, Débito Direto, Cartão
   Alimentação, Dinheiro, Levantamento` (plus `Não especificado` for a handful of historical rows
   that never had one recorded). **MBWay and Transferência are only ever a Method, never a
@@ -187,6 +190,8 @@ Three categories are shaped deliberately:
   that simply aren't spending categories — genuinely miscellaneous, cash withdrawn, money sent to a
   named person — and counting them as backlog would make the queue look permanently unfixable.
 - **`Investimentos`** is money moving pocket-to-pocket, so it is excluded from every expense total.
+- **`Reembolsos`** (income) is money back that is *not* a purchase undone: a tax refund, an
+  insurance payout, a bare "reembolso". A shop refund is netted against the purchase instead.
 - **`Cabelo`** is empty on purpose. It was added so the spend has somewhere to go the first time it
   happens, instead of landing in `Geral/Outros` and being invisible from then on. It deliberately
   has **no keyword rules**: a rule would retro-classify transactions already reviewed into other
@@ -595,7 +600,8 @@ python3 scripts/recategorize.py            # what would change, and why
 python3 scripts/recategorize.py --apply    # backs the store up first
 ```
 It normalizes any pair that has fallen outside the taxonomy (via `LEGACY_ALIASES`, which is also
-how a rename is carried out), then re-runs today's rules over rows still awaiting an answer. It
+how a rename is carried out), converts unreviewed refunds still stored as income into negative
+expenses, then re-runs today's rules over rows still awaiting an answer. It
 never touches a row with `Reviewed At`, never demotes a real category into the review bucket, and
 will refine a row sitting on a catch-all `Outros` sub-category if the rules can now name a specific
 one **within the same category** — a regex may sharpen a human's answer, never overrule it.

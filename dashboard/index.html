@@ -367,6 +367,7 @@
   /* Derived rows are marked differently from ones a human actually opened —
      the distinction is the whole point of not copying the note. */
   .badge.auto { color: var(--text-muted); border-style: dashed; }
+  .badge.refund { color: var(--series-1); border-color: var(--series-1); }
   .row-note { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .table-caption { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
 </style>
@@ -813,6 +814,18 @@
       is remembered — no rule is created, and a future transaction from any of them is unaffected.</p>
   </div>
 
+  <!-- Only for money coming in. A refund is filed as a negative expense under
+       what was bought, so it comes off that category instead of counting as
+       income — see REFUNDS in finance_tracker/taxonomy.py. -->
+  <div class="panel-field remember-field" id="rp-refund-field">
+    <label class="checkbox">
+      <input type="checkbox" id="rp-refund">
+      <span>This is a refund of an earlier purchase</span>
+    </label>
+    <p class="hint">Filed under what was bought, as money back: it lowers that category's spending
+      instead of counting as income.</p>
+  </div>
+
   <div class="panel-field">
     <label for="rp-category">Category</label>
     <select id="rp-category"></select>
@@ -1040,6 +1053,31 @@ const RAIL_MBWAY = compileRule(["mbway", "mb way"]);
 const RAIL_TRANSFER = compileRule(["transferencia", "transferencias", "trf", "trf imed"]);
 const RAIL_MEAL_CARD = compileRule(["cartao alimentacao", "coverflex", "edenred"]);
 const GATEWAY_RE = compileRule(GATEWAY_PATTERNS);
+const REFUND_RE = compileRule(REFUND_PATTERNS);
+
+// A refund is money in that undoes a purchase ("Devolução", "Estorno"). It is
+// categorized on the expense side and stored as a NEGATIVE expense under the
+// purchase's pair, so every total nets on its own. Mirrors
+// categorize.is_refund(); see REFUNDS in taxonomy.py.
+function isRefund(description, amount) {
+  return amount > 0 && REFUND_RE.test(normalize(description));
+}
+// A stored row is a refund when it is an Expense with a negative amount.
+// Mirrors taxonomy.is_refund_row().
+function isRefundRow(r) {
+  return r.Type === TYPE_EXPENSE && Number(r["Amount (€)"]) < 0;
+}
+// Give a row the refund shape asked for; true if it changed. Only incoming
+// money can switch — a purchase is never turned into a refund. Mirrors
+// reviews._set_refund().
+function setRefundShape(r, refund) {
+  const currently = isRefundRow(r);
+  if (refund === currently || !(currently || r.Type === TYPE_INCOME)) return false;
+  const amount = Math.abs(Number(r["Amount (€)"]) || 0);
+  r.Type = refund ? TYPE_EXPENSE : TYPE_INCOME;
+  r["Amount (€)"] = refund ? -amount : amount;
+  return true;
+}
 
 function overlayMethod(normalized, suggestedMethod) {
   if (RAIL_MEAL_CARD.test(normalized)) return MEAL_CARD_METHOD;
@@ -1080,7 +1118,9 @@ function matchOverride(normalized, txnType, peer) {
 
 function categorize(description, amount) {
   const normalized = normalize(description);
-  const isIncome = amount > 0;
+  // A refund is money in, but it answers "what was bought", so it goes down
+  // the expense side. Mirrors categorize.categorize_transaction.
+  const isIncome = amount > 0 && !REFUND_RE.test(normalized);
   const txnType = isIncome ? "income" : "expense";
   const defaultRail = isIncome ? "Transferência" : "Cartão";
 
@@ -1259,14 +1299,17 @@ function rawRowsToTransactions(rows, sourceFileName) {
 
     const [category, subCategory, method] = categorize(description, amount);
     const [year, month] = dateIso.split("-").map(Number);
+    // Refunds become negative expenses; the id still hashes the raw amount.
+    const refund = isRefund(description, amount);
+    const stored = Math.round(Math.abs(amount) * 100) / 100;
     out.push({
       transaction_id: makeTransactionId(dateIso, description, amount),
       Date: dateIso,
-      Type: amount > 0 ? TYPE_INCOME : TYPE_EXPENSE,
+      Type: amount > 0 && !refund ? TYPE_INCOME : TYPE_EXPENSE,
       Category: category,
       "Sub-category": subCategory,
       Method: method,
-      "Amount (€)": Math.round(Math.abs(amount) * 100) / 100,
+      "Amount (€)": refund ? -stored : stored,
       Notes: description,
       // Filled in only by a manual review — a freshly parsed bank row has
       // none yet. applyReviewsToStore() puts any saved one back on arrival.
@@ -1473,6 +1516,7 @@ function recordReviewDecision(row, reviewNote) {
     review_note: reviewNote || "",
     reviewed_at: row[REVIEWED_AT],
     notes: row.Notes || "",
+    ...(isRefundRow(row) ? { refund: true } : {}),
   };
   reviewsDirty = true;
   persistReviewsToLocalStorage();
@@ -1493,6 +1537,11 @@ function applyReviewsToStore() {
     const saved = reviewDecisions[row.transaction_id];
     if (!saved) continue;
 
+    // The refund shape first: it decides the type, and the type decides which
+    // taxonomy the saved pair is placed against. A decision without the flag
+    // was made on a row filed by its sign, so it puts the row back there.
+    const reshaped = setRefundShape(row, Boolean(saved.refund));
+
     // Map the saved pair onto today's taxonomy before writing it. A decision
     // nobody can place keeps its note and timestamp — that is the research the
     // person actually did — but not its category, which would otherwise put a
@@ -1507,7 +1556,7 @@ function applyReviewsToStore() {
       delete decision.sub_category;
     }
 
-    let changed = false;
+    let changed = reshaped;
     const fields = [["category", "Category"], ["sub_category", "Sub-category"],
                     ["method", "Method"], ["review_note", REVIEW_NOTE],
                     ["reviewed_at", REVIEWED_AT]];
@@ -1539,6 +1588,7 @@ function harvestReviewsFromStore() {
       review_note: row[REVIEW_NOTE] || "",
       reviewed_at: row[REVIEWED_AT],
       notes: row.Notes || "",
+      ...(isRefundRow(row) ? { refund: true } : {}),
     };
     harvested++;
   }
@@ -1569,7 +1619,10 @@ function applyOverridesToStore() {
     if (!isUnclassified(r)) continue;
     const signedAmount = r.Type === TYPE_INCOME ? Number(r["Amount (€)"]) : -Number(r["Amount (€)"]);
     const [cat, sub, method] = categorize(r.Notes, signedAmount);
-    if (cat !== r.Category || sub !== r["Sub-category"]) {
+    // An unanswered refund word on an income row: today's rules file it on the
+    // expense side, so the row takes the refund shape along with the pair.
+    const reshaped = r.Type === TYPE_INCOME && isRefund(r.Notes, signedAmount) && setRefundShape(r, true);
+    if (reshaped || cat !== r.Category || sub !== r["Sub-category"]) {
       r.Category = cat;
       r["Sub-category"] = sub;
       r.Method = method;
@@ -2228,7 +2281,8 @@ function recurringMerchantKey(description, method) {
 // overview.detect_recurring().
 function detectRecurring(rows) {
   const groups = new Map();
-  for (const r of rows.filter(isSpending)) {
+  // Refunds net into every total but are not charges.
+  for (const r of rows.filter(r => isSpending(r) && Number(r["Amount (€)"]) > 0)) {
     const key = JSON.stringify([r.Category, r["Sub-category"] || "",
                                 recurringMerchantKey(r.Notes, r.Method)]);
     if (!groups.has(key)) groups.set(key, []);
@@ -2335,6 +2389,13 @@ function computeDataHealth(rows) {
       derived ? "Auto-applied rows carry the category of an identical description but were not individually checked — they're marked \"auto\" in the table." : "",
       reviewsDirty ? "Unsaved changes — download review_decisions.json to share them with the CLI." : "",
     ].filter(Boolean).join(" ") });
+
+  const refunds = rows.filter(isRefundRow);
+  if (refunds.length) {
+    checks.push({ ok: true,
+      text: `${refunds.length} refund(s), ${fmtEur(-sumAmount(refunds))} back, netted against the category of the purchase.`,
+      detail: "Stored as negative expenses, so they lower that category's spending instead of counting as income." });
+  }
 
   const missingMethod = rows.filter(r => !r.Method || r.Method === UNSPECIFIED_METHOD).length;
   if (missingMethod) {
@@ -3044,7 +3105,8 @@ const OUTLIER_FLOOR = 25;
 function subcategoryMedians(rows) {
   const byKey = new Map();
   for (const r of rows) {
-    if (!isSpending(r)) continue;
+    // Refunds are not spends: they would drag a sub-category's "usual" down.
+    if (!isSpending(r) || !(Number(r["Amount (€)"]) > 0)) continue;
     const key = `${r.Category}/${r["Sub-category"]}`;
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(Number(r["Amount (€)"]) || 0);
@@ -3056,7 +3118,8 @@ function subcategoryMedians(rows) {
 
 function renderBiggestExpenses(rows, a) {
   const medians = subcategoryMedians(rows);
-  const monthSpending = monthRows(rows, a.key).filter(isSpending);
+  // Refunds are netted into the month's total (a.spending) but are not spends.
+  const monthSpending = monthRows(rows, a.key).filter(r => isSpending(r) && Number(r["Amount (€)"]) > 0);
 
   const scored = monthSpending.map(r => {
     const amount = Number(r["Amount (€)"]) || 0;
@@ -3250,6 +3313,7 @@ function renderTable() {
       <td class="num">${Number(r["Amount (€)"] || 0).toFixed(2)}</td>
       <td>
         ${esc(r.Notes || "")}
+        ${isRefundRow(r) ? `<span class="badge refund" title="Money back for a purchase, netted against ${esc(r.Category)}">refund</span>` : ""}
         ${r[REVIEWED_AT] ? (isDerivedReview(r)
             ? `<span class="badge auto" title="Auto-applied ${esc(r[REVIEWED_AT])} from another review of the same description">auto</span>`
             : `<span class="badge reviewed" title="Reviewed ${esc(r[REVIEWED_AT])}">reviewed</span>`) : ""}
@@ -3347,7 +3411,7 @@ function renderReviewQueue() {
                ${reviewSelection.has(id) ? "checked" : ""}
                aria-label="Select the ${esc(r.Type.toLowerCase())} of ${esc(Number(r["Amount (€)"] || 0).toFixed(2))} euros on ${esc(r.Date)} for batch review">
       </td>
-      <td><span class="pill ${isIncome ? "income" : "expense"}">${esc(r.Type)}</span></td>
+      <td><span class="pill ${isIncome ? "income" : "expense"}">${isRefundRow(r) ? "Refund" : esc(r.Type)}</span></td>
       <td>${esc(r.Date)}</td>
       <td>${esc(r.Notes || "")}</td>
       <td>${esc(r.Category)}${r["Sub-category"] ? " / " + esc(r["Sub-category"]) : ""}</td>
@@ -3522,6 +3586,12 @@ function renderTypeBanner(rows) {
   const type = [...types][0] || TYPE_EXPENSE;
   const isIncome = type === TYPE_INCOME;
   banner.className = `type-banner ${isIncome ? "income" : "expense"}`;
+  if (rows.length && rows.every(isRefundRow)) {
+    badge.textContent = "Refund";
+    explainer.textContent = `Money back — ${fmtEur2(-total)}. It comes off the spending of whatever ` +
+      `was bought: pick that from the expense list below.`;
+    return type;
+  }
   badge.textContent = type;
   explainer.textContent = isIncome
     ? `Money in — ${fmtEur2(total)}. Categories below are the income list.`
@@ -3632,6 +3702,37 @@ document.getElementById("rp-apply-siblings").addEventListener("change", (e) => s
 // across the change: a sub-category is only meaningful under its own category.
 document.getElementById("rp-category").addEventListener("change", () => refreshSubcategoryOptions());
 
+// Marking (or unmarking) a refund switches the panel between the income and
+// expense lists. Nothing is written until Save.
+document.getElementById("rp-refund").addEventListener("change", (e) => {
+  const panel = document.getElementById("review-panel");
+  const row = store.find(r => String(r.transaction_id) === String(panel.dataset.transactionId));
+  if (!row) return;
+  const refund = e.target.checked;
+  const type = refund ? TYPE_EXPENSE : TYPE_INCOME;
+  const amount = Math.abs(Number(row["Amount (€)"]) || 0);
+  panel.dataset.txnType = type;
+  renderTypeBanner([{ ...row, Type: type, "Amount (€)": refund ? -amount : amount }]);
+
+  const catSel = document.getElementById("rp-category");
+  const keep = catSel.value;
+  const pickable = type === TYPE_INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  catSel.innerHTML = `<option value="" disabled>Choose a category…</option>` +
+    pickable.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  catSel.value = pickable.includes(keep) ? keep : "";
+  refreshSubcategoryOptions(document.getElementById("rp-subcategory").value);
+
+  // The identical-description rows were found for the row as it is now; under
+  // the other type their pair would be wrong, so the offer goes away.
+  if (refund !== isRefundRow(row)) {
+    document.getElementById("rp-siblings-field").style.display = "none";
+    document.getElementById("rp-siblings-list").innerHTML = "";
+    document.getElementById("rp-apply-siblings").checked = false;
+  } else {
+    renderSiblingOffer(row);
+  }
+});
+
 let lastFocusedBeforePanel = null;
 
 function openReviewPanel(transactionId, invoker) {
@@ -3692,6 +3793,11 @@ function openReviewPanel(transactionId, invoker) {
   const methodSel = document.getElementById("rp-method");
   methodSel.innerHTML = METHODS.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
   methodSel.value = row.Method || "Cartão";
+
+  // Money in can be a refund; money out never is.
+  const refundField = document.getElementById("rp-refund-field");
+  refundField.style.display = (row.Type === TYPE_INCOME || isRefundRow(row)) ? "block" : "none";
+  document.getElementById("rp-refund").checked = isRefundRow(row);
 
   // Two mutually exclusive "remember" offers, chosen by the payment rail.
   //
@@ -3784,7 +3890,7 @@ function openBatchReviewPanel(rows, invoker) {
   methodSel.value = "";
 
   // None of the "remember this" affordances apply to an ad-hoc grouping.
-  ["rp-siblings-field", "rp-remember-field", "rp-remember-peer-field"]
+  ["rp-siblings-field", "rp-remember-field", "rp-remember-peer-field", "rp-refund-field"]
     .forEach(id => { document.getElementById(id).style.display = "none"; });
   document.getElementById("rp-apply-siblings").checked = false;
   document.getElementById("rp-remember").checked = false;
@@ -3868,7 +3974,11 @@ document.getElementById("rp-save").addEventListener("click", () => {
     return;
   }
   const subCategory = document.getElementById("rp-subcategory").value;
-  if (!assertValidPair(row.Type, category, subCategory)) return;
+  // The refund box, when shown, decides the type the pair belongs to.
+  const refundShown = document.getElementById("rp-refund-field").style.display !== "none";
+  const wantRefund = refundShown && document.getElementById("rp-refund").checked;
+  const targetType = refundShown ? (wantRefund ? TYPE_EXPENSE : TYPE_INCOME) : row.Type;
+  if (!assertValidPair(targetType, category, subCategory)) return;
   if (subCategory === UNCLASSIFIED_SUB) {
     setStatus(`"${UNCLASSIFIED_SUB}" is the queue itself — pick a real sub-category to clear this row.`, true);
     document.getElementById("rp-subcategory").focus();
@@ -3876,7 +3986,7 @@ document.getElementById("rp-save").addEventListener("click", () => {
   }
   const method = document.getElementById("rp-method").value;
   const reviewNote = document.getElementById("rp-review-note").value.trim();
-  const txnType = row.Type === TYPE_INCOME ? "income" : "expense";
+  const txnType = targetType === TYPE_INCOME ? "income" : "expense";
 
   const visible = el => document.getElementById(el).style.display !== "none";
   const rememberMerchant = visible("rp-remember-field") && document.getElementById("rp-remember").checked;
@@ -3892,6 +4002,7 @@ document.getElementById("rp-save").addEventListener("click", () => {
     ? findSiblings(row).filter(r => picked.has(String(r.transaction_id)))
     : [];
 
+  const reshaped = refundShown && setRefundShape(row, wantRefund);
   row.Category = category;
   row["Sub-category"] = subCategory;
   row.Method = method;
@@ -3905,6 +4016,10 @@ document.getElementById("rp-save").addEventListener("click", () => {
   recordReviewDecision(row, reviewNote);
 
   const messages = [`Saved as ${category} / ${subCategory}.`];
+  if (reshaped) {
+    messages.push(wantRefund ? `Filed as a refund: it now lowers ${category} spending instead of counting as income.`
+                             : `Filed as income again, no longer a refund.`);
+  }
   if (reviewNote) messages.push(`Note kept with the transaction.`);
 
   let undo = null;
@@ -4048,6 +4163,7 @@ function applyToSiblings(siblings, sourceRow, { category, subCategory, method, o
       reviewed_at: r[REVIEWED_AT],
       notes: r.Notes || "",
       derived_from: sourceRow.transaction_id,
+      ...(isRefundRow(r) ? { refund: true } : {}),
     };
   }
   reviewsDirty = true;

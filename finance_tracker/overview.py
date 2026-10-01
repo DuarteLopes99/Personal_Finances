@@ -244,7 +244,10 @@ def detect_recurring(df: pd.DataFrame, min_months: int = 3, tolerance: float = 0
     Returns one row per recurring charge with its cadence, typical amount and
     annualized cost, which is usually the number that changes behaviour.
     """
+    # Refunds (negative expenses) net into every total, but they are not
+    # charges: a returned jacket is not a commitment.
     spendable = _spendable(df)
+    spendable = spendable[spendable[schema.AMOUNT] > 0]
     if spendable.empty:
         return pd.DataFrame(columns=_RECURRING_COLUMNS)
 
