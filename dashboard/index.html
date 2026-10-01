@@ -245,6 +245,34 @@
   .view > *, .charts-grid > *, .data-groups > * { min-width: 0; }
   .charts-grid .span-2 { grid-column: 1 / -1; }
 
+  /* --- This month ------------------------------------------------------ */
+  .month-hero { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 8px 24px; }
+  .hero-main { min-width: 0; }
+  .card h2.hero-kicker { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+  .hero-sentence { font-size: 22px; line-height: 1.35; font-weight: 600; margin: 0 0 16px; max-width: 46ch; }
+  .hero-figures { margin: 0; border-left: 1px solid var(--hairline); display: flex; flex-direction: column; }
+  .hero-figures > div { padding: 12px 0 12px 20px; border-bottom: 1px solid var(--hairline); }
+  .hero-figures > div:last-child { border-bottom: 0; }
+  .hero-figures dt { font-size: 13px; color: var(--muted); }
+  .hero-figures dd { margin: 2px 0 0; }
+  .hero-figures .figure { display: block; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .hero-figures .figure-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .alert-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .alert-cards:not(:has(.alert-card:not([hidden]))) { display: none; }
+  .alert-card { border-top: 3px solid var(--over); }
+  .alert-card h2 { margin-bottom: 4px; }
+  .alert-card p { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  a.button-link {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 4px 12px;
+    border: 1px solid var(--line); border-radius: 10px; color: var(--accent);
+    font-size: 13px; font-weight: 500; text-decoration: none;
+  }
+  @media (max-width: 980px) {
+    .month-hero { grid-template-columns: 1fr; }
+    .hero-figures { border-left: 0; border-top: 1px solid var(--hairline); }
+    .hero-figures > div { padding-left: 0; }
+  }
+
   .data-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
   .data-group { border: 1px solid var(--hairline); border-radius: 12px; padding: 14px 16px; }
   .data-group h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
@@ -586,6 +614,44 @@
     <main id="main">
       <section class="view" id="view-month" aria-labelledby="h-view-month" hidden>
         <h1 id="h-view-month" tabindex="-1">This month</h1>
+        <!-- The hero is the existing pacing card with the month's answer written
+             above it in one sentence, and the four numbers that sentence rests on
+             beside it. Budgets come in a later phase; until then "plan" is the
+             baseline average. -->
+        <section class="card month-hero" aria-labelledby="h-pacing">
+          <div class="hero-main">
+            <h2 id="h-pacing" class="hero-kicker">Spending pace through the month</h2>
+            <p class="hero-sentence" id="hero-sentence" aria-live="polite">No transactions loaded yet.</p>
+            <div class="chart-box"><canvas id="chart-pacing"></canvas></div>
+            <p class="table-caption" id="pacing-legend">Cumulative spend by day — the selected month against the baseline average.
+              A line above the baseline means you're ahead of your usual pace at the same point in the month.</p>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="pacing-table"></div>
+            </details>
+          </div>
+          <dl class="hero-figures" id="hero-figures" aria-label="The month in figures"></dl>
+        </section>
+
+        <!-- Things that need you, each a link to where you deal with it. A card
+             with nothing to say is hidden rather than reading "0". -->
+        <div class="alert-cards" id="month-alerts">
+          <section class="card alert-card" id="alert-review" aria-labelledby="h-alert-review" hidden>
+            <h2 id="h-alert-review"></h2>
+            <p id="alert-review-text"></p>
+            <a class="button-link" href="#/review">Open review</a>
+          </section>
+          <section class="card alert-card" id="alert-outliers" aria-labelledby="h-alert-outliers" hidden>
+            <h2 id="h-alert-outliers"></h2>
+            <p id="alert-outliers-text"></p>
+            <button class="link" id="alert-outliers-go" type="button">See them</button>
+          </section>
+          <section class="card alert-card" id="alert-health" aria-labelledby="h-alert-health" hidden>
+            <h2 id="h-alert-health"></h2>
+            <p id="alert-health-text"></p>
+            <a class="button-link" href="#/data">See data health</a>
+          </section>
+        </div>
         <section class="card" aria-labelledby="h-analysis">
           <h2 id="h-analysis">Monthly analysis</h2>
           <div class="analysis-controls">
@@ -605,12 +671,6 @@
           <div class="meters" id="analysis-meters"></div>
           <div class="stat-grid" id="analysis-stats"></div>
           <p class="analysis-note" id="analysis-note"></p>
-        </section>
-        <section class="card" aria-labelledby="h-pacing">
-          <h2 id="h-pacing">Spending pace through the month</h2>
-          <div class="chart-box"><canvas id="chart-pacing"></canvas></div>
-          <p class="table-caption">Cumulative spend by day — the selected month against the baseline average.
-            A line above the baseline means you're ahead of your usual pace at the same point in the month.</p>
         </section>
         <!-- Per-month, so it sits with the other per-month cards. Two questions in
                one place: what were the biggest single spends, and which of them are
@@ -2799,6 +2859,10 @@ function renderAnalysis(rows) {
     document.getElementById("recurring-note").textContent = "";
     document.getElementById("biggest-body").innerHTML = "";
     ["pacing", "catTrend", "topSub"].forEach(destroyChart);
+    document.getElementById("hero-sentence").textContent = "No transactions loaded yet.";
+    document.getElementById("hero-figures").innerHTML = "";
+    document.getElementById("pacing-table").innerHTML = "";
+    renderMonthAlerts([]);
     return;
   }
 
@@ -2810,7 +2874,8 @@ function renderAnalysis(rows) {
   renderCategoryTrendChart(rows);
   renderTopSubcategories(rows, analysis);
   renderRecurring(rows);
-  renderBiggestExpenses(rows, analysis);
+  renderMonthHero(analysis);
+  renderMonthAlerts(renderBiggestExpenses(rows, analysis));
 }
 
 // ---------------------------------------------------------------------
@@ -2956,36 +3021,195 @@ function renderAnalysisStats(a) {
   }
 }
 
+// A vertical "today" line on the pacing chart. Inline rather than a vendored
+// annotation plugin: one line and a word don't justify a dependency.
+function todayMarkerPlugin(index) {
+  return {
+    id: "todayMarker",
+    afterDatasetsDraw(chart) {
+      const x = chart.scales.x.getPixelForValue(index);
+      const { top, bottom, right } = chart.chartArea;
+      const ctx = chart.ctx;
+      const flip = x > right - 48;
+      ctx.save();
+      ctx.strokeStyle = cssVar("--muted");
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.fillStyle = cssVar("--muted");
+      ctx.font = `600 11px "Public Sans", system-ui, sans-serif`;
+      ctx.textAlign = flip ? "right" : "left";
+      ctx.fillText("Today", x + (flip ? -4 : 4), top + 10);
+      ctx.restore();
+    },
+  };
+}
+
+// Extends the original pacing chart: the month's spend (solid, filled), and
+// for a running month a dashed projection from today to the last day at the
+// current daily pace, plus the baseline average (dotted) and a "today" marker.
+// A plan line joins it with budgets in a later phase.
 function renderPacingChart(rows, a) {
   destroyChart("pacing");
   const pace = computeSpendingPace(rows, a);
+  const accent = cssVar("--accent");
+  const n = a.baselineKeys.length;
+  const running = a.isCurrentMonth && a.elapsedDays < a.totalDays;
+
   const datasets = [{
-    label: monthLabel(a.key), data: pace.current,
-    borderColor: cssVar("--series-2"), backgroundColor: cssVar("--series-2") + "1a",
-    borderWidth: 2, pointRadius: 0, fill: true, tension: 0.1, spanGaps: false,
+    label: `Spent in ${monthLabel(a.key)}`, data: pace.current,
+    borderColor: accent, backgroundColor: accent + "1f",
+    borderWidth: 2.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: false,
   }];
+  let projection = null;
+  if (running) {
+    const from = a.elapsedDays - 1;
+    const start = pace.current[from] || 0;
+    const step = (a.projected - start) / (a.totalDays - a.elapsedDays);
+    projection = pace.labels.map((_, i) => (i < from ? null : start + step * (i - from)));
+    datasets.push({
+      label: "Projection at the current daily pace", data: projection,
+      borderColor: accent, borderWidth: 2, borderDash: [6, 5], pointRadius: 0, fill: false, tension: 0,
+    });
+  }
   if (pace.baseline) {
     datasets.push({
-      label: `${a.baselineKeys.length}-month average`, data: pace.baseline,
-      borderColor: cssVar("--series-1"), borderWidth: 2, borderDash: [5, 4],
+      label: `${n}-month average`, data: pace.baseline,
+      borderColor: cssVar("--baseline"), borderWidth: 2, borderDash: [2, 4],
       pointRadius: 0, fill: false, tension: 0.1,
     });
   }
+
+  const base = baseChartOptions();
   charts.pacing = new Chart(document.getElementById("chart-pacing"), {
     type: "line",
     data: { labels: pace.labels, datasets },
     options: baseChartOptions({
+      // The legend is written out in words under the chart instead: line
+      // styles are the only thing telling these series apart.
+      plugins: { legend: { display: false }, tooltip: base.plugins.tooltip },
       scales: {
         x: { title: { display: true, text: "Day of month", color: cssVar("--text-muted") },
              grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted"), maxTicksLimit: 10 } },
         y: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted") }, beginAtZero: true },
       },
     }),
+    plugins: a.isCurrentMonth ? [todayMarkerPlugin(a.elapsedDays - 1)] : [],
   });
+
   const endOfMonth = pace.current.filter(v => v !== null).pop() || 0;
   describeChart("chart-pacing", `Cumulative spending through ${monthLabel(a.key)}, reaching ${fmtEur(endOfMonth)}`
-    + (pace.baseline ? `, against a ${a.baselineKeys.length}-month average ending at ${fmtEur(pace.baseline[pace.baseline.length - 1])}.` : "."));
+    + (running ? ` by day ${a.elapsedDays}, projected to reach ${fmtEur(a.projected)}` : "")
+    + (pace.baseline ? `, against a ${n}-month average ending at ${fmtEur(pace.baseline[pace.baseline.length - 1])}.` : "."));
+
+  const legend = [`Solid line: spent so far in ${monthLabel(a.key)}.`];
+  if (running) legend.push(`Dashed: where the month lands at the current daily pace. The vertical line is today.`);
+  if (pace.baseline) legend.push(`Dotted: the ${n}-month average at the same day — above it means ahead of your usual pace.`);
+  document.getElementById("pacing-legend").textContent = legend.join(" ");
+
+  const headers = ["Day", "Spent"];
+  if (projection) headers.push("Projection");
+  if (pace.baseline) headers.push(`${n}-month average`);
+  renderDataTable("pacing-table", headers, pace.labels.map((day, i) => {
+    const cells = [String(day), pace.current[i] === null ? "—" : fmtEur2(pace.current[i])];
+    if (projection) cells.push(projection[i] === null ? "—" : fmtEur2(projection[i]));
+    if (pace.baseline) cells.push(fmtEur2(pace.baseline[i]));
+    return cells;
+  }), `Cumulative spending by day in ${monthLabel(a.key)}`);
 }
+
+// ---------------------------------------------------------------------
+// This month: the hero sentence, its figures and the alert cards.
+// ---------------------------------------------------------------------
+function monthName(key) {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
+}
+
+// The month's answer in one sentence. Direction is a word ("over"/"under"),
+// never a colour. With no budgets yet, the comparison is the baseline average.
+function heroSentence(a) {
+  const name = monthName(a.key);
+  const n = a.baselineKeys.length;
+  const versus = (amount) => {
+    if (!a.baseline) return ".";
+    const diff = amount - a.baseline;
+    return `, which is ${fmtEur(Math.abs(diff))} ${diff >= 0 ? "over" : "under"} the ${n}-month average.`;
+  };
+  if (a.key > localDateIso().slice(0, 7)) {
+    return `${name} ${a.year} hasn't started yet; ${fmtEur(a.spending)} is already dated in it.`;
+  }
+  if (a.isCurrentMonth) {
+    return `${fmtEur(a.spending)} spent by day ${a.elapsedDays}. At this pace ${name} lands near `
+      + `${fmtEur(a.projected)}${versus(a.projected)}`;
+  }
+  return `${name} closed at ${fmtEur(a.spending)}${versus(a.spending).replace(", which is", ",")}`;
+}
+
+function renderMonthHero(a) {
+  const sentence = document.getElementById("hero-sentence");
+  const text = heroSentence(a);
+  // Only on change: it is a live region, and re-announcing the same sentence
+  // after every save would be noise.
+  if (sentence.textContent !== text) sentence.textContent = text;
+
+  const n = a.baselineKeys.length;
+  const figures = [
+    { label: a.isCurrentMonth ? "Savings rate so far" : "Savings rate",
+      value: a.savingsRate === null ? "—" : `${a.savingsRate.toFixed(0)}%`,
+      sub: a.savingsRate === null ? "No income recorded this month" : `${fmtEur(a.net)} left of ${fmtEur(a.income)} earned` },
+  ];
+  if (a.baseline) {
+    const pct = ((a.isCurrentMonth ? a.projected : a.spending) / a.baseline - 1) * 100;
+    figures.push({ label: `Against the ${n}-month average`, value: fmtPct(pct),
+      sub: `${pct >= 0 ? "More" : "Less"} than ${fmtEur(a.baseline)}${a.isCurrentMonth ? ", at this pace" : ""}` });
+  } else {
+    figures.push({ label: "Against the average", value: "—", sub: "Not enough earlier months yet" });
+  }
+  figures.push(a.isCurrentMonth
+    ? { label: "At this daily pace", value: fmtEur(a.projected),
+        sub: `${fmtEur2(a.perDay)} a day for ${a.totalDays} days` }
+    : { label: "Per day", value: fmtEur2(a.perDay), sub: `Over ${a.totalDays} days` });
+
+  document.getElementById("hero-figures").innerHTML = figures.map(f => `
+    <div>
+      <dt>${esc(f.label)}</dt>
+      <dd><span class="figure">${esc(f.value)}</span><span class="figure-sub">${esc(f.sub)}</span></dd>
+    </div>`).join("");
+}
+
+function showAlert(id, title, text) {
+  const card = document.getElementById(id);
+  card.hidden = !title;
+  if (!title) return;
+  document.getElementById(`h-${id}`).textContent = title;
+  document.getElementById(`${id}-text`).textContent = text;
+}
+
+// Review and data health look at the whole store, like their own tabs do;
+// unusual amounts follow the selected month, like the card they point at.
+function renderMonthAlerts(outliers) {
+  const queue = reviewQueue();
+  const oldest = queue.map(r => String(r.Date)).sort()[0];
+  showAlert("alert-review", queue.length ? `${queue.length} to review` : "",
+    queue.length ? `Nothing matched these, so they're waiting for a category. The oldest is from ${oldest}.` : "");
+
+  const top = (outliers || []).slice().sort((x, y) => y.amount - x.amount)[0];
+  showAlert("alert-outliers",
+    outliers && outliers.length ? `${outliers.length} unusual amount${outliers.length === 1 ? "" : "s"}` : "",
+    top ? `Largest: ${top.row.Notes || top.key}, ${fmtEur2(top.amount)} — ${top.ratio.toFixed(1)}x the usual for its sub-category.` : "");
+
+  const issues = store.length ? computeDataHealth(store).filter(c => !c.ok) : [];
+  showAlert("alert-health",
+    issues.length ? `${issues.length} data health issue${issues.length === 1 ? "" : "s"}` : "",
+    issues.length ? issues[0].text : "");
+}
+
+document.getElementById("alert-outliers-go").addEventListener("click", () => {
+  const heading = document.getElementById("h-biggest");
+  heading.scrollIntoView({ block: "start" });
+  heading.setAttribute("tabindex", "-1");
+  heading.focus({ preventScroll: true });
+});
 
 function renderCategoryTrendChart(rows) {
   destroyChart("catTrend");
@@ -3410,6 +3634,7 @@ function renderBiggestExpenses(rows, a) {
         : `Nothing unusual: no spend reached ${OUTLIER_MULTIPLE}x its sub-category's usual amount. `
           + `Showing the ${Math.min(shown.length, 12)} largest.`)
     : "No spending recorded in this month.";
+  return outliers;
 }
 
 // ---------------------------------------------------------------------
