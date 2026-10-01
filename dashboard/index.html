@@ -688,7 +688,7 @@
       <p class="field-hint" style="margin-top:-6px;">Across the whole loaded history, not the selected month — a commitment is only visible once it has repeated.</p>
       <div class="scroll-table" style="max-height:280px;">
         <table>
-          <caption class="sr-only">Charges that repeat monthly for a consistent amount</caption>
+          <caption class="sr-only">Charges that repeat monthly or yearly for a consistent amount</caption>
           <thead>
             <tr>
               <th scope="col">What</th><th scope="col" class="num">Typical</th>
@@ -2202,30 +2202,72 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+// A yearly charge repeats this many months apart, give or take a month.
+const RECURRING_YEARLY_GAP = [11, 13];
+
+// Who a charge is paid to: the counterparty for a transfer, otherwise the
+// normalized description with digit runs removed, since banks put card
+// numbers, terminal ids and references in there that change between charges
+// from the same merchant. Mirrors overview.recurring_merchant_key().
+function recurringMerchantKey(description, method) {
+  if (method === "MBWay" || method === "Transferência") {
+    const name = extractCounterparty(description || "");
+    if (name) return "peer:" + normalize(name);
+  }
+  return normalize(description ?? "").replace(/[0-9]+/g, "").replace(/\s+/g, " ").trim();
+}
+
+// Grouped by merchant within each sub-category, not by sub-category alone:
+// that reported Netflix at €8.99 and Disney+ at €6.99 as one €7.99 charge,
+// halving the annual cost, and a third subscription in the same sub-category
+// made the amounts look inconsistent so all of them vanished.
+//
+// Yearly when every gap between the months it appears in is about twelve
+// months (one charge a year); otherwise monthly once it reaches
+// RECURRING_MIN_MONTHS distinct months (twelve a year). Mirrors
+// overview.detect_recurring().
 function detectRecurring(rows) {
   const groups = new Map();
   for (const r of rows.filter(isSpending)) {
-    const label = `${r.Category} / ${r["Sub-category"] || "—"}`;
-    if (!groups.has(label)) groups.set(label, []);
-    groups.get(label).push(r);
+    const key = JSON.stringify([r.Category, r["Sub-category"] || "",
+                                recurringMerchantKey(r.Notes, r.Method)]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
   }
 
   const out = [];
-  for (const [label, group] of groups) {
-    const months = new Set(group.map(monthKey));
-    if (months.size < RECURRING_MIN_MONTHS) continue;
+  for (const group of groups.values()) {
+    const monthIndexes = [...new Set(group.map(r => Number(r.Year) * 12 + Number(r.Month)))]
+      .sort((a, b) => a - b);
+    const gaps = monthIndexes.slice(1).map((m, i) => m - monthIndexes[i]);
+    let cadence, perYear;
+    if (gaps.length && gaps.every(g => g >= RECURRING_YEARLY_GAP[0] && g <= RECURRING_YEARLY_GAP[1])) {
+      cadence = "yearly"; perYear = 1;
+    } else if (monthIndexes.length >= RECURRING_MIN_MONTHS) {
+      cadence = "monthly"; perYear = 12;
+    } else {
+      continue;
+    }
     const amounts = group.map(r => Number(r["Amount (€)"]) || 0);
     const typical = median(amounts);
     if (typical <= 0) continue;
     const consistent = amounts.filter(a => Math.abs(a - typical) <= typical * RECURRING_TOLERANCE).length;
     if (consistent / amounts.length < 0.6) continue;
+    // The latest charge names the merchant; on a tie, the later row, as in Python.
+    const latest = group.reduce((best, r) => (String(r.Date) >= String(best.Date) ? r : best));
     out.push({
-      label, typical, months: months.size,
-      lastSeen: group.map(r => String(r.Date)).sort().pop(),
-      annualized: typical * 12,
+      label: String(latest.Notes || ""),
+      category: latest.Category, sub: latest["Sub-category"] || "",
+      cadence, typical, months: monthIndexes.length,
+      lastSeen: String(latest.Date),
+      annualized: typical * perYear,
     });
   }
-  return out.sort((a, b) => b.annualized - a.annualized);
+  // Sorted on the cent-rounded cost Python sorts on, then code-unit order on a
+  // tie, which is what Python's string sort does.
+  const cents = v => Math.round(v * 100);
+  return out.sort((a, b) => (cents(b.annualized) - cents(a.annualized))
+    || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
 }
 
 // Cheap, non-destructive consistency checks. These surface problems the charts
@@ -2971,7 +3013,7 @@ function renderRecurring(rows) {
   const recurring = detectRecurring(rows);
   document.getElementById("recurring-body").innerHTML = recurring.map(r => `
     <tr>
-      <td>${esc(r.label)}<span class="row-note">last seen ${esc(r.lastSeen)}</span></td>
+      <td>${esc(r.label)}<span class="row-note">${esc(r.category)} / ${esc(r.sub || "—")} · ${esc(r.cadence)} · last seen ${esc(r.lastSeen)}</span></td>
       <td class="num">${esc(fmtEur2(r.typical))}</td>
       <td class="num">${r.months}</td>
       <td class="num">${esc(fmtEur(r.annualized))}</td>
@@ -2979,9 +3021,11 @@ function renderRecurring(rows) {
   const total = recurring.reduce((sum, r) => sum + r.annualized, 0);
   document.getElementById("recurring-note").textContent = recurring.length
     ? `${recurring.length} recurring commitment(s) — about ${fmtEur(total)} a year, ${fmtEur(total / 12)} a month. `
-      + `Detected as a sub-category appearing in ${RECURRING_MIN_MONTHS}+ months for an amount within `
-      + `${Math.round(RECURRING_TOLERANCE * 100)}% of its own median.`
-    : `Nothing repeats consistently enough yet — needs ${RECURRING_MIN_MONTHS}+ months of history per charge.`;
+      + `Detected per merchant within a sub-category, for an amount within `
+      + `${Math.round(RECURRING_TOLERANCE * 100)}% of its own median: monthly once it appears in `
+      + `${RECURRING_MIN_MONTHS}+ months, yearly when it repeats about every 12 months.`
+    : `Nothing repeats consistently enough yet — needs ${RECURRING_MIN_MONTHS}+ months of history per charge, `
+      + `or two charges about a year apart.`;
 }
 
 // A transaction is an outlier when it is large *for its own sub-category*,

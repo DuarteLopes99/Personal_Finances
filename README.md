@@ -488,10 +488,13 @@ it reports:
   biggest once.
 - **Top sub-categories this month** — "Alimentação is your biggest category" isn't actionable;
   "Restaurante €310 vs Supermercado €180" is.
-- **Recurring commitments** — anything appearing in 3+ distinct months for an amount within 15% of
-  its own median, with the annualized cost. Both halves of that test matter: the median check is
-  what separates Netflix at €8.99 every month from a restaurant that's also monthly but never the
-  same price twice.
+- **Recurring commitments** — charges from the same merchant (or, for a transfer, the same
+  counterparty) within a sub-category, for an amount within 15% of their own median, with the
+  annualized cost. **Monthly** once they appear in 3+ distinct months (twelve charges a year);
+  **yearly** when they repeat about every 12 months (one charge a year). The median check is what
+  separates Netflix at €8.99 every month from a restaurant that's also monthly but never the same
+  price twice; grouping by merchant is what keeps Netflix and Disney+ two charges rather than one
+  averaged one.
 - **Biggest expenses this month**, each as a share of the month.
 
 The card honours the "Exclude Cartão Alimentação" toggle but deliberately ignores the year filter
