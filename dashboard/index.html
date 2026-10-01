@@ -276,6 +276,8 @@
     .hero-figures > div { padding-left: 0; }
   }
 
+  .where-table td { vertical-align: top; }
+  .where-table code { font-size: 12px; }
   .data-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
   .data-group { border: 1px solid var(--hairline); border-radius: 12px; padding: 14px 16px; }
   .data-group h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
@@ -391,8 +393,9 @@
   }
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .tile .label { font-size: 12px; color: var(--text-secondary); }
-  .tile .value { font-size: 26px; font-weight: 600; margin-top: 4px; }
+  .tile { padding: 4px 0; }
+  .tile .label { font-size: 13px; color: var(--muted); }
+  .tile .value { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin-top: 4px; }
   .tile .value.pos { color: var(--good); }
   .tile .value.neg { color: var(--over); }
 
@@ -414,7 +417,8 @@
   .scroll-table { position: relative; max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
   .scroll-table table thead th { position: sticky; top: 0; background: var(--surface-1); }
 
-  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .filters input[type=text] { flex: 1 1 200px; }
   .filters input[type=text] {
     min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px;
     font-size: 14px; background: var(--surface); color: var(--ink); min-width: 200px;
@@ -1075,6 +1079,33 @@
         <section class="card" aria-labelledby="h-health">
           <h2 id="h-health">Data health</h2>
           <ul class="health-list" id="health-list"></ul>
+        </section>
+        <!-- Static on purpose: where things are is a fact about the project,
+             not about what is loaded. Kept in step with .gitignore and
+             scripts/install_git_hooks.py. -->
+        <section class="card" aria-labelledby="h-data-where">
+          <h2 id="h-data-where">Where your data lives</h2>
+          <table class="where-table">
+            <caption class="sr-only">Files in data/, whether they are encrypted, and whether git may hold them</caption>
+            <thead><tr><th scope="col">File</th><th scope="col">Holds</th><th scope="col">In git?</th></tr></thead>
+            <tbody>
+              <tr><td><code>data/transactions.csv</code></td><td>The store, in plain text. What this page loads and saves.</td>
+                  <td>No — gitignored, and the pre-commit hook refuses it.</td></tr>
+              <tr><td><code>data/transactions.csv.enc</code></td><td>The store, encrypted (AES-256-GCM, your passphrase).</td>
+                  <td>Yes — the only copy meant for git.</td></tr>
+              <tr><td><code>data/review_decisions.json</code></td><td>Your reviews and notes, so they survive a rebuild.</td>
+                  <td>No — gitignored and blocked by the hook.</td></tr>
+              <tr><td><code>data/category_overrides.json</code></td><td>Rules you taught: merchant keywords and peer rules.</td>
+                  <td>Yes — but a peer rule holds a person's name, so check before committing.</td></tr>
+              <tr><td><code>data/transactions.backup-*.csv</code></td><td>Copies made by reset_store.py and recategorize.py.</td>
+                  <td>No — plain text, gitignored.</td></tr>
+              <tr><td>Bank exports (<code>.xlsx</code>, <code>.xls</code>)</td><td>Raw statements. Keep them outside the repo.</td>
+                  <td>No — ignored everywhere and blocked by the hook.</td></tr>
+            </tbody>
+          </table>
+          <p class="field-hint">Encrypt before committing with <code>python3 scripts/encrypt_store.py</code>; decrypt with
+            <code>scripts/decrypt_store.py</code>, or load the .enc file above. The local server only ever writes the
+            three files the page saves, and only on 127.0.0.1.</p>
         </section>
       </section>
     </main>
