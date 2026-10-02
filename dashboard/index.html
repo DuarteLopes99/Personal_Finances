@@ -1609,9 +1609,34 @@ function parseDateFlexible(value) {
   return null;
 }
 
+// Mirrors loader._to_amount(). An xlsx cell arrives as a number and needs
+// nothing; CSV text arrives in either convention, and a Portuguese bank writes
+// "1.650,00". This used to swap the first comma for a dot and parseFloat the
+// result, so "1.650,00" became 1.65 — every CSV amount over €999 was silently
+// read a thousand times too small. Now whichever of "." or "," comes last is
+// the decimal point and the other is a thousands separator; a lone comma is a
+// decimal comma; a leading or trailing "-" is the sign ("12,34-").
+// Returns null when the value can't be read, and the row is skipped.
+const AMOUNT_TEXT_RE = /^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+
 function parseAmount(value) {
-  const n = parseFloat(String(value).replace(",", ".").trim());
-  return isNaN(n) ? null : n;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  let text = String(value ?? "").trim().replace(/\u00a0/g, "").replace(/ /g, "");
+  if (!text || ["nan", "none", "null", "undefined"].includes(text.toLowerCase())) return null;
+  const negative = text.endsWith("-") || text.startsWith("-");
+  text = text.replace(/^[-+]+|[-+]+$/g, "");
+  const lastDot = text.lastIndexOf("."), lastComma = text.lastIndexOf(",");
+  if (lastDot >= 0 && lastComma >= 0) {
+    const decimal = lastDot > lastComma ? "." : ",";
+    const thousands = decimal === "." ? "," : ".";
+    text = text.split(thousands).join("").split(decimal).join(".");
+  } else if (lastComma >= 0) {
+    text = text.split(",").join(".");
+  }
+  // Strict, like Python's float(): parseFloat("12abc") would happily say 12.
+  if (!AMOUNT_TEXT_RE.test(text)) return null;
+  const amount = Number(text);
+  return negative && amount > 0 ? -amount : amount;
 }
 
 function rawRowsToTransactions(rows, sourceFileName) {
