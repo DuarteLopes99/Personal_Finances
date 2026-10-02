@@ -614,6 +614,14 @@ python3 scripts/reset_store.py
 This never deletes your data outright — it renames the current `transactions.csv` to a
 timestamped `transactions.backup-<timestamp>.csv` first, so resetting is always reversible.
 
+**Adding a month never removes anything, and replacing needs your say-so.** "Add monthly file(s)"
+(and the sidebar's "Import statement") only ever adds transactions it hasn't seen. Swapping the whole
+history for a store file is in the Data tab's **Danger zone** as "Replace all history…": it tells you
+how many transactions and which months will go, and only proceeds once you type `replace`. A bank
+export picked there is added like a monthly file instead. The server backs on this: it refuses any
+save that would remove a transaction already in `data/transactions.csv`, except that one confirmed
+replace, and copies the old file to `data/transactions.backup-<timestamp>.csv` before writing it.
+
 **Dashboard** — double-click **Finance Dashboard** on the Desktop (see below), or run:
 ```bash
 python3 scripts/serve_dashboard.py          # --port 8792, --no-browser
@@ -792,7 +800,8 @@ real encryption scheme rather than obfuscation.
 The dashboard can also load and save the encrypted file directly, decrypting entirely client-side
 via the browser's native Web Crypto API — nothing is sent over the network and the passphrase
 never leaves your browser tab:
-- **Load encrypted (.enc)** — decrypts and loads `transactions.csv.enc` in place of the plaintext CSV
+- **Replace all history with an encrypted file (.enc)** — in the Data tab's Danger zone: decrypts
+  `transactions.csv.enc` and, after you confirm, uses it in place of the current history
 - **Download encrypted (.enc)** — encrypts the current in-memory store and downloads it
 
 Both sides (Python and JavaScript) use the exact same format — `salt(16 bytes) || nonce(12 bytes)
