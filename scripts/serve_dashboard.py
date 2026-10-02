@@ -24,7 +24,9 @@ Four things this does that `python3 -m http.server` alone doesn't:
   doesn't.
 - **Accepts PUT for the three data files**, so the dashboard can save your work
   to `data/` on its own: the review decisions, the rules you teach it, and the
-  transaction store itself. Without this, a review lives in the browser's
+  transaction store itself. The store is append-only from here: a save that
+  would remove a transaction already in the file is refused (409), except a
+  confirmed "Replace all history", which backs the old file up first. Without this, a review lives in the browser's
   localStorage until you remember to click a download button — and localStorage
   is scoped to the exact origin, so a launch that lands on port 8793 instead of
   8792 silently shows an empty history. See SAVEABLE below.
@@ -34,7 +36,9 @@ Usage:
 """
 
 import argparse
+import csv
 import http.server
+import io
 import json
 import os
 import socket
@@ -65,6 +69,10 @@ SAVEABLE = {
     "/data/transactions.csv",
 }
 MAX_UPLOAD_BYTES = 32 * 1024 * 1024
+# Sent by the page only after the user typed the confirmation in "Replace all
+# history". A custom header also forces a CORS preflight, which this server
+# never answers, so another site can't send it.
+REPLACE_HEADER = "X-Finance-Replace-Store"
 
 
 def _newer(a: dict, b: dict) -> dict:
@@ -119,6 +127,35 @@ def _merge_json(path: Path, body: bytes) -> bytes:
         result = incoming
 
     return json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+
+
+def _transaction_ids(text: str) -> set:
+    """Non-empty transaction_id values in a store CSV (empty if it has none)."""
+    reader = csv.DictReader(io.StringIO(text))
+    return {str(row.get("transaction_id") or "").strip() for row in reader} - {""}
+
+
+def _dropped_transactions(path: Path, body: bytes) -> int:
+    """How many transactions on disk the incoming store no longer contains.
+
+    The dashboard has no way to delete a transaction, so a save that drops any
+    is a bug by definition — and it was a real one: a bank export given to
+    "Load transactions.csv" replaced the loaded store, and the next automatic
+    save wrote those few rows over the whole history. Refusing here protects
+    the file whatever the page gets wrong. A file on disk that can't be read
+    can't be compared, and is not protected.
+    """
+    if not path.exists():
+        return 0
+    try:
+        on_disk = _transaction_ids(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, csv.Error):
+        return 0
+    try:
+        incoming = _transaction_ids(body.decode("utf-8-sig"))
+    except (UnicodeDecodeError, csv.Error):
+        incoming = set()
+    return len(on_disk - incoming)
 
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
@@ -179,6 +216,34 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
                 body = _merge_json(path, body)
             except ValueError as exc:
                 self.send_error(400, f"Malformed JSON for {target}: {exc}")
+                return
+
+        # Append-only for the store: never write a version missing transactions
+        # the file already holds — unless the page says the user confirmed
+        # "Replace all history", and even then the old file is backed up first.
+        # Otherwise 409 with a plain-text reason the page shows.
+        if target == "/data/transactions.csv":
+            dropped = _dropped_transactions(path, body)
+            if dropped and self.headers.get(REPLACE_HEADER) == "confirmed":
+                backup = path.with_name(
+                    f"{path.stem}.backup-{datetime.now():%Y%m%dT%H%M%S}{path.suffix}")
+                try:
+                    backup.write_bytes(path.read_bytes())
+                except OSError as exc:
+                    self.send_error(500, f"Could not back up {target} before replacing it: {exc}")
+                    return
+                print(f"  replacing {target}: {dropped} transaction(s) dropped, "
+                      f"previous file kept as data/{backup.name}")
+                dropped = 0
+            if dropped:
+                message = (f"Refused: this save would remove {dropped} transaction(s) already in "
+                           f"data/transactions.csv. The file on disk was left unchanged.").encode("utf-8")
+                print(f"  refused {target}: would drop {dropped} transaction(s)")
+                self.send_response(409)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(message)))
+                self.end_headers()
+                self.wfile.write(message)
                 return
 
         tmp = path.with_suffix(path.suffix + ".tmp")
@@ -249,7 +314,7 @@ def describe_store() -> str:
         return f"data/transactions.csv — {lines} transactions, last updated {modified}"
     if encrypted.exists():
         return ("data/transactions.csv is not present, but transactions.csv.enc is — "
-                "use the dashboard's \"Load encrypted (.enc)\" button, or run "
+                "use the dashboard's \"Replace all history with an encrypted file\" button, or run "
                 "scripts/decrypt_store.py first.")
     return "No store yet — the dashboard will open empty. Add monthly file(s) from the page itself."
 

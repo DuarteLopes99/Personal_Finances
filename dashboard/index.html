@@ -283,6 +283,21 @@
   .data-group h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
   .data-group .field-hint { margin: 0 0 12px; }
   .danger-zone { border-color: var(--over); }
+  .danger-zone h4.danger-step { font-size: 13px; font-weight: 600; margin: 14px 0 2px; }
+  .panel-row label.filebtn.danger-file { color: var(--over); border-color: var(--over); }
+  .confirm-dialog {
+    width: min(480px, calc(100vw - 32px)); padding: 22px 24px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  }
+  .confirm-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+  .confirm-dialog h2 { font-size: 18px; margin: 0 0 10px; }
+  .confirm-dialog p { font-size: 14px; line-height: 1.45; margin: 0 0 10px; }
+  .confirm-dialog .replace-lost { color: var(--over); font-weight: 600; }
+  .confirm-dialog label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 4px; }
+  .confirm-dialog input {
+    width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px;
+    font-size: 15px; background: var(--surface); color: var(--ink);
+  }
 
   details.manual-details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; min-height: 44px; }
   details.manual-details > summary::-webkit-details-marker { display: none; }
@@ -1029,21 +1044,6 @@
         <section class="card" aria-labelledby="h-data-source">
           <h2 id="h-data-source">Files</h2>
           <div class="data-groups">
-            <div class="data-group" role="group" aria-labelledby="h-data-load">
-              <h3 id="h-data-load">Load</h3>
-              <p class="field-hint">Replace what is loaded with a store file. An encrypted one is decrypted
-                in this tab; the passphrase never leaves it.</p>
-              <div class="panel-row">
-                <label class="filebtn">
-                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg> Load transactions.csv
-                        <input id="file-store" type="file" accept=".csv">
-                      </label>
-                <label class="filebtn">
-                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Load encrypted (.enc)
-                        <input id="file-store-enc" type="file" accept=".enc">
-                      </label>
-              </div>
-            </div>
             <div class="data-group" role="group" aria-labelledby="h-data-add">
               <h3 id="h-data-add">Add</h3>
               <p class="field-hint">Bank exports (xlsx, xls or csv), several at once. Transactions already in
@@ -1058,7 +1058,8 @@
             <div class="data-group" role="group" aria-labelledby="h-data-save">
               <h3 id="h-data-save">Save and export</h3>
               <p class="field-hint">With the local server running, reviews, rules and the store are saved to
-                data/ as you go. These are copies for when it isn't.</p>
+                data/ as you go, and the server refuses any save that would remove a transaction already
+                in data/transactions.csv. These are copies for when it isn't running.</p>
               <div class="panel-row">
                 <button class="primary" id="btn-download" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download updated transactions.csv</button>
                 <button class="primary" id="btn-download-enc" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Download encrypted (.enc)</button>
@@ -1068,6 +1069,23 @@
             </div>
             <div class="data-group danger-zone" role="group" aria-labelledby="h-data-danger">
               <h3 id="h-data-danger">Danger zone</h3>
+              <p class="field-hint">Each of these throws away what is loaded. To add a month, use
+                "Add monthly file(s)" above — it never removes anything.</p>
+              <h4 class="danger-step">Replace all history</h4>
+              <p class="field-hint">Swaps every transaction for the ones in a store file, after you type a
+                confirmation. The current data/transactions.csv is backed up in data/ first. A bank export
+                picked here is added like a monthly file instead, and replaces nothing.</p>
+              <div class="panel-row">
+                <label class="filebtn danger-file">
+                  <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg> Replace all history with a transactions.csv…
+                  <input id="file-store" type="file" accept=".csv">
+                </label>
+                <label class="filebtn danger-file">
+                  <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Replace all history with an encrypted file (.enc)…
+                  <input id="file-store-enc" type="file" accept=".enc">
+                </label>
+              </div>
+              <h4 class="danger-step">Clear this tab</h4>
               <p class="field-hint">Empties this tab's working copy. Nothing on disk changes, and saved review
                 decisions come back as the rows do.</p>
               <div class="panel-row">
@@ -1238,6 +1256,21 @@
     <button id="rp-cancel">Cancel</button>
   </div>
 </aside>
+
+<!-- "Replace all history" asks twice: it says what disappears, and the button
+     only works once the word is typed. Native <dialog>: focus moves in, is
+     trapped, Escape cancels, and focus returns to the picker. -->
+<dialog class="confirm-dialog" id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-text">
+  <h2 id="replace-title">Replace all history?</h2>
+  <p id="replace-text"></p>
+  <p class="replace-lost" id="replace-lost"></p>
+  <label for="replace-confirm-input">Type <strong>replace</strong> to confirm</label>
+  <input id="replace-confirm-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <div class="panel-actions">
+    <button type="button" class="danger" id="replace-confirm" disabled>Replace all history</button>
+    <button type="button" id="replace-cancel">Cancel</button>
+  </div>
+</dialog>
 
 <script src="vendor/papaparse.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1722,6 +1755,48 @@ function parseStoreCsv(text) {
   }));
 }
 
+// What makes a CSV a transactions store rather than a bank export.
+const STORE_REQUIRED_COLUMNS = ["transaction_id", "Date", "Type", "Amount (€)"];
+
+function csvHeader(text) {
+  const first = Papa.parse(text, { preview: 1 }).data[0] || [];
+  return first.map(h => String(h).replace(/^\ufeff/, "").trim());
+}
+
+function looksLikeStore(columns) {
+  return STORE_REQUIRED_COLUMNS.every(c => columns.includes(c));
+}
+
+function looksLikeBankExport(columns) {
+  return Boolean(findColumn(columns, DATE_ALIASES) && findColumn(columns, DESCRIPTION_ALIASES)
+                 && findColumn(columns, AMOUNT_ALIASES));
+}
+
+// Rows the rest of the page can trust: an id, an ISO date, a type and a number
+// (every writer — the pipeline, the seeder, this page — writes ISO dates).
+// Anything else is left out rather than shown as an "Invalid Date" month or
+// summed as NaN. Year and Month are re-derived from the date when missing.
+function validStoreRows(rows) {
+  const ok = [];
+  let dropped = 0;
+  for (const r of rows) {
+    const date = String(r.Date ?? "");
+    const amount = Number(r["Amount (€)"]);
+    if (!String(r.transaction_id ?? "").trim() || !/^\d{4}-\d{2}-\d{2}/.test(date)
+        || (r.Type !== TYPE_INCOME && r.Type !== TYPE_EXPENSE) || !Number.isFinite(amount)) {
+      dropped++;
+      continue;
+    }
+    r["Amount (€)"] = amount;
+    if (!Number.isInteger(Number(r.Year)) || !(Number(r.Month) >= 1 && Number(r.Month) <= 12)) {
+      r.Year = Number(date.slice(0, 4));
+      r.Month = Number(date.slice(5, 7));
+    }
+    ok.push(r);
+  }
+  return { ok, dropped };
+}
+
 function toCsv(rows) {
   return Papa.unparse(rows, { columns: COLUMNS });
 }
@@ -1774,14 +1849,20 @@ function loadReviewsFromLocalStorage() {
 // as the fallback it always was.
 let serverSaveAvailable = null;   // null = untested, then true/false
 
-async function saveToDataFolder(filename, body, contentType) {
+async function saveToDataFolder(filename, body, contentType, extraHeaders) {
   if (serverSaveAvailable === false) return false;
   try {
     const res = await fetch(`../data/${filename}`, {
       method: "PUT",
-      headers: { "Content-Type": contentType },
+      headers: { "Content-Type": contentType, ...(extraHeaders || {}) },
       body,
     });
+    // 409: the server is there and refused this one write (it would have
+    // removed transactions from the store). Say so, and keep saving the rest.
+    if (res.status === 409) {
+      setStatus(`${await res.text()} Reload the page to see the file as it is on disk.`, true);
+      return false;
+    }
     serverSaveAvailable = res.ok;
     return res.ok;
   } catch (e) {
@@ -1844,8 +1925,18 @@ let storeSaveTimer = null;
 
 function saveStoreToDataFolder() {
   if (!storeSaveArmed || !store.length) return Promise.resolve(false);
-  return saveToDataFolder("transactions.csv", sortedCsvText(), "text/csv")
-    .then(ok => { if (ok) { storeInfo.modified = new Date(); renderStoreBox(); } return ok; });
+  // Only the save right after a confirmed "Replace all history" may drop
+  // transactions; the server refuses any other save that would.
+  const replacing = storeReplacePending;
+  return saveToDataFolder("transactions.csv", sortedCsvText(), "text/csv",
+                          replacing ? { "X-Finance-Replace-Store": "confirmed" } : null)
+    .then(ok => {
+      if (ok) {
+        if (replacing) storeReplacePending = false;
+        storeInfo.modified = new Date(); renderStoreBox();
+      }
+      return ok;
+    });
 }
 
 // Debounced: one batch review rewrites twenty rows in a single click, and that
@@ -2031,13 +2122,19 @@ async function tryAutoLoad() {
   try {
     const res = await fetch("../data/transactions.csv");
     if (!res.ok) throw new Error("not found");
-    store = parseStoreCsv(await res.text());
+    const { ok, dropped } = validStoreRows(parseStoreCsv(await res.text()));
+    store = ok;
     const modified = res.headers.get("Last-Modified");
     noteStoreSource("Plaintext CSV in data/", modified ? new Date(modified) : null);
-    setStatus(`Loaded data/transactions.csv automatically — ${store.length} transactions.`);
+    setStatus(`Loaded data/transactions.csv automatically — ${store.length} transactions.` +
+      (dropped ? ` ${dropped} row(s) in it had no transaction id or no valid date and were left out; ` +
+                 `the file is rewritten without them.` : ""), Boolean(dropped));
     onStoreLoaded();
+    // Unusable rows (no id, so the server's guard doesn't count them) are
+    // written out of the file rather than coming back on every load.
+    if (dropped) markStoreDirty();
   } catch (e) {
-    setStatus("Couldn't auto-load data/transactions.csv (expected if you opened this file directly — browsers block reading local files without a server). Use \"Load transactions.csv\" below, or launch via the \"Finance Dashboard\" desktop shortcut.", true);
+    setStatus("Couldn't auto-load data/transactions.csv (expected if you opened this file directly — browsers block reading local files without a server). Use \"Replace all history with a transactions.csv\" in the Data tab, or launch via the \"Finance Dashboard\" desktop shortcut.", true);
   }
 }
 
@@ -2187,6 +2284,7 @@ document.getElementById("btn-clear").addEventListener("click", () => {
   // is what makes that true — otherwise the next review or manual entry would
   // save this deliberately-emptied store over data/transactions.csv.
   storeSaveArmed = false;
+  storeReplacePending = false;
   if (storeSaveTimer) { clearTimeout(storeSaveTimer); storeSaveTimer = null; }
   pendingAdded = 0; pendingDuplicate = 0;
   document.getElementById("btn-download").disabled = true;
@@ -2198,17 +2296,120 @@ document.getElementById("btn-clear").addEventListener("click", () => {
   renderAll();
 });
 
+// "Replace all history" — the two store pickers in the Danger zone. They used
+// to replace silently, take any CSV at all, and arm the automatic save: a
+// bank export given to "Load transactions.csv" became a 10-row "store" with no
+// dates, and the next change wrote it over data/transactions.csv. Now:
+//   - a bank export never replaces anything; it is added like a monthly file;
+//   - a store file replaces only after the dialog below, where the user types
+//     "replace" having been told how many transactions and which months go;
+//   - only that confirmed save may drop transactions on the server, which
+//     backs the old file up first (see serve_dashboard.py, REPLACE_HEADER);
+//   - rows without an id or a valid date are left out either way.
+let storeReplacePending = false;
+
+function monthSpan(rows) {
+  const keys = [...new Set(rows.map(monthKey))].sort();
+  return keys.length ? `${monthLabel(keys[0])} to ${monthLabel(keys[keys.length - 1])}` : "no months";
+}
+
+function confirmReplace(message, lost, returnTo) {
+  const dialog = document.getElementById("replace-dialog");
+  const input = document.getElementById("replace-confirm-input");
+  const ok = document.getElementById("replace-confirm");
+  document.getElementById("replace-text").textContent = message;
+  document.getElementById("replace-lost").textContent = lost;
+  document.getElementById("replace-lost").hidden = !lost;
+  input.value = "";
+  ok.disabled = true;
+  return new Promise(resolve => {
+    const done = (answer) => {
+      input.removeEventListener("input", onInput);
+      ok.removeEventListener("click", onOk);
+      document.getElementById("replace-cancel").removeEventListener("click", onCancel);
+      dialog.removeEventListener("cancel", onCancel);
+      if (dialog.open) dialog.close();
+      // Back to the picker that opened it (its label shows the focus ring).
+      if (returnTo && document.contains(returnTo)) returnTo.focus();
+      resolve(answer);
+    };
+    const onInput = () => { ok.disabled = input.value.trim().toLowerCase() !== "replace"; };
+    const onOk = () => done(true);
+    const onCancel = (e) => { if (e) e.preventDefault(); done(false); };
+    input.addEventListener("input", onInput);
+    ok.addEventListener("click", onOk);
+    document.getElementById("replace-cancel").addEventListener("click", onCancel);
+    dialog.addEventListener("cancel", onCancel);   // Escape
+    dialog.showModal();
+    input.focus();
+  });
+}
+
+async function replaceStoreText(text, file, kind, picker) {
+  const columns = csvHeader(text);
+  const hadStore = store.length > 0;
+
+  if (!looksLikeStore(columns)) {
+    if (!looksLikeBankExport(columns)) {
+      setStatus(`${file.name} is neither a transactions store nor a bank export ` +
+                `(columns: ${columns.join(", ") || "none"}). Nothing was changed.`, true);
+      return;
+    }
+    // The mistake this flow exists to stop: a monthly export picked under
+    // "Replace". It is added, never used as the whole history.
+    const raw = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+    const { added, dup } = mergeIntoStore(rawRowsToTransactions(raw, file.name));
+    pendingAdded += added; pendingDuplicate += dup;
+    if (added) document.getElementById("btn-download").disabled = false;
+    if (!hadStore) noteStoreSource(null, null);
+    const restored = applyReviewsToStore();
+    if (restored) markStoreDirty();
+    setStatus(`${file.name} is a bank export, not a store, so nothing was replaced: it was added the way ` +
+              `"Add monthly file(s)" adds one — +${added} new, ${dup} already there.`);
+    renderAll();
+    return;
+  }
+
+  const { ok, dropped } = validStoreRows(parseStoreCsv(text));
+  const incoming = new Set(ok.map(r => String(r.transaction_id)));
+  const lostRows = store.filter(r => !incoming.has(String(r.transaction_id)));
+  const fileMonths = new Set(ok.map(monthKey));
+  const lostMonths = [...new Set(lostRows.map(monthKey))].filter(k => !fileMonths.has(k)).sort();
+  const message =
+    `This replaces the ${store.length} transaction(s) loaded now (${monthSpan(store)}) with the ` +
+    `${ok.length} in ${file.name} (${monthSpan(ok)}).` +
+    (dropped ? ` ${dropped} row(s) in the file have no id or no valid date and will be left out.` : "") +
+    ` data/transactions.csv is backed up in data/ first, and your review decisions are kept.`;
+  const lost = lostRows.length
+    ? `${lostRows.length} transaction(s) not in the file will be removed` +
+      (lostMonths.length ? `, including every transaction from ${lostMonths.map(monthLabel).join(", ")}.` : ".")
+    : "";
+  if (!await confirmReplace(message, lost, picker)) {
+    setStatus(`Nothing was replaced. To add ${file.name}'s transactions without removing any, ` +
+              `use "Add monthly file(s)" for a bank export.`);
+    return;
+  }
+
+  store = ok;
+  pendingAdded = 0; pendingDuplicate = 0;
+  document.getElementById("btn-download").disabled = true;
+  noteStoreSource(`${kind} (${file.name})`, new Date(file.lastModified));
+  setStatus(`Replaced all history with ${file.name} — ${store.length} transactions` +
+            (lostRows.length ? `; ${lostRows.length} removed.` : ".") +
+            (dropped ? ` ${dropped} row(s) without an id or a valid date were left out.` : ""), Boolean(dropped));
+  onStoreLoaded();
+  // The one save allowed to drop transactions; markStoreDirty sends it.
+  storeReplacePending = true;
+  markStoreDirty();
+}
+
 document.getElementById("file-store").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    store = parseStoreCsv(reader.result);
-    pendingAdded = 0; pendingDuplicate = 0;
-    document.getElementById("btn-download").disabled = true;
-    noteStoreSource(`Plaintext CSV (${file.name})`, new Date(file.lastModified));
-    setStatus(`Loaded ${file.name} — ${store.length} transactions.`);
-    onStoreLoaded();
+    replaceStoreText(reader.result, file, "Plaintext CSV", e.target);
+    e.target.value = "";
   };
   reader.readAsText(file);
 });
@@ -2222,15 +2423,11 @@ document.getElementById("file-store-enc").addEventListener("change", (e) => {
   reader.onload = async () => {
     try {
       const plaintextBytes = await decryptBlob(new Uint8Array(reader.result), passphrase);
-      store = parseStoreCsv(new TextDecoder().decode(plaintextBytes));
-      pendingAdded = 0; pendingDuplicate = 0;
-      document.getElementById("btn-download").disabled = true;
-      noteStoreSource(`Encrypted (${file.name})`, new Date(file.lastModified));
-      setStatus(`Decrypted and loaded ${file.name} — ${store.length} transactions.`);
-      onStoreLoaded();
+      await replaceStoreText(new TextDecoder().decode(plaintextBytes), file, "Encrypted", e.target);
     } catch (err) {
       setStatus(err.message, true);
     }
+    e.target.value = "";
   };
   reader.readAsArrayBuffer(file);
 });

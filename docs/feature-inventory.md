@@ -17,13 +17,17 @@ exists and its handler still fires, the feature survived.
 ## Data and persistence
 
 - [ ] **Auto-load on start.** `tryAutoLoad()` fetches `../data/transactions.csv`; on failure the
-  status line explains why (file:// origin, no server) and points at the Load button and the
-  desktop shortcut.
+  status line explains why (file:// origin, no server) and points at the Replace button and the
+  desktop shortcut. Rows without a transaction id or a valid ISO date are left out with a warning,
+  and the file is rewritten without them.
 - [ ] **Load order on start** *(added)*: review memory, then overrides, then the store, so saved
   decisions are re-applied on arrival rather than one render later.
-- [ ] **Load transactions.csv from a file** (`#file-store`). Resets the session's added/duplicate
-  counters and disables `#btn-download`.
-- [ ] **Load and decrypt `.enc`** (`#file-store-enc`): passphrase prompt, Web Crypto
+- [ ] **Replace all history with a transactions.csv** (`#file-store`, in the Danger zone). Replaces
+  the loaded store only after `#replace-dialog` says how many transactions and which months go and
+  the user types "replace"; Escape or Cancel changes nothing. A bank export picked here is added like
+  a monthly file and replaces nothing. Resets the session's added/duplicate counters and disables
+  `#btn-download`. *(Changed after a bank export given to the old Load button wiped the store.)*
+- [ ] **Replace all history with an encrypted file** (`#file-store-enc`): same confirmation; passphrase prompt, Web Crypto
   AES-256-GCM + PBKDF2-SHA256 (200,000 iterations), `salt[16] || nonce[12] || ciphertext`, same
   format as `finance_tracker/crypto.py`. A wrong passphrase gives a status-line error, not a crash.
 - [ ] **Add monthly file(s)** (`#file-monthly` inside the `#btn-monthly` label): xlsx, xls, csv,
@@ -74,6 +78,10 @@ exists and its handler still fires, the feature survived.
 - [ ] **Server: PUT allowlist** (`SAVEABLE`: the three data files), 32 MB cap, 400 on bad
   Content-Length, 403 on anything else.
 - [ ] **Server: atomic writes** (temp file + `os.replace`).
+- [ ] **Server: append-only store** *(added)*: a PUT of `transactions.csv` that would remove a
+  transaction already on disk is refused with 409 and a reason the status line shows, unless it
+  carries `X-Finance-Replace-Store: confirmed` (sent once, after the replace dialog), in which case
+  the old file is first copied to `data/transactions.backup-<timestamp>.csv`.
 - [ ] **Server: merge, not replace,** for the JSON files: reviews union by id with newer
   `reviewed_at` winning and `__deleted` applied after; overrides union by keywords + type + peer,
   incoming wins.
