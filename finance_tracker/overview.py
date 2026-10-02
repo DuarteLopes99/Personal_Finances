@@ -2,9 +2,13 @@
 transactions store, mirroring the SUMIFS logic of the original Excel template.
 """
 
+import re
+
 import pandas as pd
 
-from . import schema
+from . import categorize, schema
+
+_WHITESPACE = re.compile(r"\s+")
 
 
 def compute_monthly_overview(df: pd.DataFrame) -> pd.DataFrame:
@@ -195,31 +199,74 @@ def compute_month_over_month(df: pd.DataFrame, lookback: int = 3) -> pd.DataFram
     return out.round(2)
 
 
+_DIGITS = re.compile(r"[0-9]+")
+_RECURRING_COLUMNS = ["Category", "Sub-category", "Merchant", "Cadence", "Typical (€)", "Months",
+                      "Last seen", "Annualized (€)"]
+# A yearly charge repeats this many months apart, give or take a month either
+# way: renewals drift, and a bank posts a charge a few days early or late.
+_YEARLY_GAP = (11, 13)
+
+
+def recurring_merchant_key(description, method) -> str:
+    """Who a charge is paid to, as a grouping key for detect_recurring().
+
+    For a transfer it is the counterparty, so two transfers to the same person
+    group together whatever boilerplate the bank wrapped around the name. For
+    anything else it is the normalized description with digit runs removed,
+    because banks put card numbers, terminal ids and references in there
+    ("COMPRA *0980 ...", "Repsol E1360") that change between charges from the
+    same merchant. Mirrored by recurringMerchantKey() in dashboard/index.html.
+    """
+    if method in ("MBWay", "Transferência"):
+        name = categorize.extract_counterparty(description)
+        if name:
+            return "peer:" + categorize.normalize(name)
+    return _WHITESPACE.sub(" ", _DIGITS.sub("", categorize.normalize(description))).strip()
+
+
 def detect_recurring(df: pd.DataFrame, min_months: int = 3, tolerance: float = 0.15) -> pd.DataFrame:
     """Find charges that look like subscriptions or standing commitments.
 
-    A charge qualifies when the same sub-category shows up in at least
-    `min_months` distinct months with an amount that stays within `tolerance`
-    of its own median — that combination is what separates Netflix at €8.99
-    every month from a restaurant that also happens to be monthly but never
-    for the same amount twice.
+    Charges are grouped by merchant within each sub-category (see
+    recurring_merchant_key), not by sub-category alone. Grouping by
+    sub-category reported Netflix at €8.99 and Disney+ at €6.99 as a single
+    €7.99 charge, halving the annual cost, and a third subscription in the same
+    sub-category made the amounts look inconsistent, so all of them vanished.
 
-    Returns one row per recurring charge with its typical amount and the
+    A group is **yearly** when it appears in at least two months and every gap
+    between consecutive months is about twelve months; its annual cost is one
+    charge. Otherwise it is **monthly** when it appears in at least
+    `min_months` distinct months, and its annual cost is twelve charges. Either
+    way at least 60% of the amounts must sit within `tolerance` of their own
+    median: that is what separates Netflix at €8.99 every month from a
+    restaurant that is also monthly but never the same price twice.
+
+    Returns one row per recurring charge with its cadence, typical amount and
     annualized cost, which is usually the number that changes behaviour.
     """
+    # Refunds (negative expenses) net into every total, but they are not
+    # charges: a returned jacket is not a commitment.
     spendable = _spendable(df)
+    spendable = spendable[spendable[schema.AMOUNT] > 0]
     if spendable.empty:
-        return pd.DataFrame(columns=["Category", "Sub-category", "Typical (€)", "Months",
-                                     "Last seen", "Annualized (€)"])
+        return pd.DataFrame(columns=_RECURRING_COLUMNS)
 
     spendable = spendable.copy()
-    spendable["_month_key"] = (spendable[schema.YEAR].astype(str) + "-"
-                               + spendable[schema.MONTH].astype(int).astype(str).str.zfill(2))
+    spendable["_month_index"] = (spendable[schema.YEAR].astype(int) * 12
+                                 + spendable[schema.MONTH].astype(int))
+    spendable["_merchant"] = [recurring_merchant_key(notes, method) for notes, method
+                              in zip(spendable[schema.NOTES], spendable[schema.METHOD])]
 
     rows = []
-    for (category, sub_category), group in spendable.groupby([schema.CATEGORY, schema.SUBCATEGORY]):
-        months = group["_month_key"].nunique()
-        if months < min_months:
+    for (category, sub_category, _), group in spendable.groupby(
+            [schema.CATEGORY, schema.SUBCATEGORY, "_merchant"]):
+        month_indexes = sorted(group["_month_index"].unique())
+        gaps = [b - a for a, b in zip(month_indexes, month_indexes[1:])]
+        if gaps and all(_YEARLY_GAP[0] <= g <= _YEARLY_GAP[1] for g in gaps):
+            cadence, per_year = "yearly", 1
+        elif len(month_indexes) >= min_months:
+            cadence, per_year = "monthly", 12
+        else:
             continue
         typical = group[schema.AMOUNT].median()
         if typical <= 0:
@@ -227,17 +274,20 @@ def detect_recurring(df: pd.DataFrame, min_months: int = 3, tolerance: float = 0
         within = (group[schema.AMOUNT] - typical).abs() <= typical * tolerance
         if within.mean() < 0.6:
             continue
+        latest = group.sort_values(schema.DATE, kind="stable").iloc[-1]
         rows.append({
             "Category": category,
             "Sub-category": sub_category,
+            "Merchant": str(latest[schema.NOTES]),
+            "Cadence": cadence,
             "Typical (€)": round(typical, 2),
-            "Months": months,
-            "Last seen": group[schema.DATE].max(),
-            "Annualized (€)": round(typical * 12, 2),
+            "Months": len(month_indexes),
+            "Last seen": latest[schema.DATE],
+            "Annualized (€)": round(typical * per_year, 2),
         })
-    out = pd.DataFrame(rows, columns=["Category", "Sub-category", "Typical (€)", "Months",
-                                      "Last seen", "Annualized (€)"])
-    return out.sort_values("Annualized (€)", ascending=False).reset_index(drop=True)
+    out = pd.DataFrame(rows, columns=_RECURRING_COLUMNS)
+    return out.sort_values(["Annualized (€)", "Merchant"], ascending=[False, True],
+                           kind="stable").reset_index(drop=True)
 
 
 def project_month_end(df: pd.DataFrame, year: int, month: int, as_of_day: int = None,

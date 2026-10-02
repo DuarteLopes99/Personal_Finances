@@ -361,13 +361,17 @@ const REVIEWED_AT = "Reviewed At";
 // the rail is detected separately by overlayMethod() and wins
 // whenever the description names one.
 const GATEWAY_PATTERNS = ["nuvei", "easypay", "eupago", "safecharge", "payshop", "stripe", "adyen", "worldpay", "redunicre"];
+// Money in with one of these words is a refund: categorized on the
+// expense side and stored as a negative expense (taxonomy.py REFUNDS).
+const REFUND_PATTERNS = ["devolucao", "devolucoes", "estorno", "estornos"];
+const REFUND_LABEL = "Reembolso";
 
 const PURPOSE_INCOME_RULES = [
   [["subsidio de alimentacao", "cartao alimentacao", "cheque refeicao", "ticket refeicao", "coverflex", "edenred"], "Salário Alimentação", "Salário Alimentação", "Cartão Alimentação"],
   [["ordenado", "salario", "vencimento", "remuneracao", "retroativo", "retroativos"], "Salário", "Salário", "Transferência"],
   [["irs", "reembolso irs", "reembolsos irs", "autoridade tributaria", "financas"], "Reembolsos", "IRS", "Transferência"],
   [["seguro", "seguros", "fidelidade", "tranquilidade", "ageas", "zurich", "generali"], "Reembolsos", "Seguros", "Transferência"],
-  [["reembolso", "reembolsos", "estorno", "devolucao", "credito a favor"], "Reembolsos", "Estornos", "Transferência"],
+  [["reembolso", "reembolsos", "credito a favor"], "Reembolsos", "Estornos", "Transferência"],
   [["desemprego", "subsidio de desemprego", "seguranca social"], "Subsídios", "Desemprego", "Transferência"],
   [["subsidio", "subsidios", "abono"], "Subsídios", "Outros", "Transferência"],
 ];

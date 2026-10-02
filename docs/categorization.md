@@ -84,6 +84,34 @@ Trf. MB WAY para Bhout   →  Desporto / Ginásio / MBWay
 that default is not a safety net: rules are first-match-wins, so the second copy is *unreachable
 code*. The protection comes from `_overlay_method()`, and it already applies to every rule.
 
+## Refunds are negative spending, not income
+
+A shop refund is a purchase being undone. Filed by its sign it became income
+(`Reembolsos / Estornos`), and that was wrong twice over: return a €60 jacket and the month
+showed €60 more earned *and* €60 still spent on clothes. Net was right; income, spending, the
+savings rate and the health meters were all overstated.
+
+So money in whose description carries a refund word (`REFUND_PATTERNS` in `categorize.py`:
+`devolução`, `estorno` and plurals) goes down the **expense** side of the ladder, and is stored
+as an `Expense` with a **negative** amount under the purchase's pair:
+
+```
+Devolucao Zara Porto   +59.99  →  Expense / Lazer / Roupa / −59.99
+Estorno Loja Estranha   +5.00  →  Expense / Outros / Por Classificar / −5.00   (review queue)
+Reembolso IRS 2025    +300.00  →  Income / Reembolsos / IRS                    (not a purchase)
+```
+
+Every total then nets with no special case, in both engines. A refund whose description names
+nothing the rules know lands in the review queue, where you say what was bought. The review
+panel can also mark any incoming payment as a refund, or un-mark one; that choice is saved in
+`review_decisions.json` as `"refund": true` and survives a rebuild. A decision without the flag
+was made on a row filed by its sign, so it puts the row back there: a refund you reviewed as
+income before this existed stays income.
+
+Refunds are left out of recurring commitments, sub-category medians and the biggest-spends
+list, since they are not charges. `scripts/recategorize.py` converts unreviewed refunds still
+stored as income; reviewed ones are left alone.
+
 ## Normalization: why patterns carry no accents
 
 Every description goes through `normalize()` before matching — Unicode NFD, combining marks
@@ -117,7 +145,9 @@ flowchart TD
     L0 -->|yes| L0R["Outros / Por Classificar<br/>refuse to guess"]
     L0 -->|no| SIGN{"amount > 0 ?"}
 
-    SIGN -->|"yes"| INC["income rules"]
+    SIGN -->|"yes"| RF{"refund word?<br/>Devolução, Estorno"}
+    RF -->|"no"| INC["income rules"]
+    RF -->|"yes"| EXP
     SIGN -->|"no"| EXP["expense rules"]
     INC --> L1
     EXP --> L1
@@ -161,6 +191,10 @@ Read top to bottom: **the more specific and more human a piece of knowledge is, 
 to speak and the harder it is to overrule.**
 
 ### Why each rung is where it is
+
+**Before any rung: refunds pick the side.** A refund word on incoming money sends the row down
+the expense rungs instead of the income ones (see "Refunds are negative spending" above). It
+decides nothing else: overrides, rules and the fallback still answer what was bought.
 
 **0 · Payment gateways go first, and refuse to answer.** `Nuvei Limited`, `Pagamento Eupago
 Instituicao Pagamento Lda`, `Easypay`, `Safecharge`, `Stripe` and `Payshop` are processors that

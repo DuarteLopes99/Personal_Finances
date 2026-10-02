@@ -5,27 +5,68 @@
 <title>Personal Finance Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+  /* --- Type ------------------------------------------------------------
+     Public Sans, self-hosted (dashboard/vendor/fonts, SIL OFL 1.1 — see
+     OFL.txt there). Latin subset only: it covers Portuguese and the euro
+     sign; anything else falls back to the system stack glyph by glyph. */
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 400; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 500; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-500-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 600; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-600-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Public Sans"; font-style: normal; font-weight: 700; font-display: swap;
+    src: url("vendor/fonts/public-sans-latin-700-normal.woff2") format("woff2"); }
+
+  /* --- Design tokens -----------------------------------------------------
+     The roles below are the whole palette for chrome, text and status. The
+     categorical --series-* hues are NOT mapped onto them: they are a
+     colour-blind-validated set of nine (see README, "One colour per
+     category"), and folding nine categories onto five role colours would put
+     two categories on one hue — the exact bug the series order exists to
+     prevent. Role uses that used to borrow a series hue (buttons, links, the
+     count badge, "more"/"less" deltas) now use the role tokens.
+
+     Contrast, measured: every text role clears 4.5:1 on --surface in both
+     themes. In light, --over (4.41) and --done (3.98) fall short on --ground,
+     so text in those colours only ever sits on a surface. White on --accent
+     is 6.9:1 in light but 2.3:1 in dark, hence --on-accent. */
   :root {
     color-scheme: light;
-    --surface-1:      #fcfcfb;
-    --page-plane:     #f9f9f7;
-    --text-primary:   #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted:     #898781;
-    --gridline:       #e1e0d9;
-    --baseline:       #c3c2b7;
-    --good:           #006300;
-    --warn:           #a34400;
-    /* Reserved status palette — never reused as a series colour. Three bands
-       only: a fourth (status-serious #ec835a) sits ΔE 13.6 from warning in
-       normal vision, below the 15 floor, so it was measured out rather than
-       eyeballed in. Sub-3:1 warning is the documented relaxation, and its
-       mitigation is the icon + text label the meter always shows. */
-    --status-critical: #d03b3b;
+    --ground:      #EEF1EF;
+    --rail:        #F7F9F8;
+    --surface:     #FFFFFF;
+    --ink:         #16211D;
+    --muted:       #52605A;
+    --line:        #D5DCD8;
+    --hairline:    #E3E8E5;
+    --accent:      #2A5A9C;
+    --accent-soft: #DCE6F2;
+    --on-accent:   #FFFFFF;
+    --over:        #B4530A;
+    --done:        #5E7D6E;
+    --ai:          #7A4FA0;
+    --baseline:    #9AA6A0;
+
+    /* Older names, kept so nothing that references them breaks. */
+    --surface-1:      var(--surface);
+    --page-plane:     var(--ground);
+    --text-primary:   var(--ink);
+    --text-secondary: var(--muted);
+    /* Was a lighter grey under 4.5:1; folded into --muted rather than kept. */
+    --text-muted:     var(--muted);
+    --gridline:       var(--hairline);
+    --border:         var(--line);
+    --good:           var(--done);
+    --warn:           var(--over);
+    --focus:          var(--accent);
+    /* Meter bands. Three, not four (see renderMeter): over budget and healthy
+       take the role colours; the amber middle band has no role counterpart
+       and stays, carried by its icon and word as before. */
+    --status-critical: var(--over);
     --status-warning:  #fab219;
-    --status-good:     #0ca30c;
-    --focus:          #0b57d0;
-    --border:         rgba(11,11,11,0.10);
+    --status-good:     var(--done);
+
     --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
     --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
     /* Slot 9 (teal) extends the eight-hue set because the expense taxonomy now
@@ -45,23 +86,24 @@
        Data health panel is where it gets named. */
     --series-unknown: #85827b;
   }
+  /* Dark: same hues, lightness lifted for text roles and lowered for planes. */
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
       color-scheme: dark;
-      --surface-1:      #1a1a19;
-      --page-plane:     #0d0d0d;
-      --text-primary:   #ffffff;
-      --text-secondary: #c3c2b7;
-      --text-muted:     #898781;
-      --gridline:       #2c2c2a;
-      --baseline:       #383835;
-      --good:           #0ca30c;
-      --warn:           #f0a068;
-      --status-critical: #d03b3b;
-      --status-warning:  #fab219;
-      --status-good:     #0ca30c;
-      --focus:          #8ab4f8;
-      --border:         rgba(255,255,255,0.10);
+      --ground:      #0F1513;
+      --rail:        #141B18;
+      --surface:     #19221F;
+      --ink:         #E5EBE8;
+      --muted:       #A6B3AD;
+      --line:        #34413C;
+      --hairline:    #25302C;
+      --accent:      #86ACE3;
+      --accent-soft: #1F3250;
+      --on-accent:   #19221F;
+      --over:        #F0965A;
+      --done:        #8DB3A0;
+      --ai:          #BE9BE0;
+      --baseline:    #6E7B75;
       --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
       --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
       /* Stepped for the dark surface and re-validated there, not flipped. */
@@ -72,20 +114,20 @@
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --surface-1:      #1a1a19;
-    --page-plane:     #0d0d0d;
-    --text-primary:   #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted:     #898781;
-    --gridline:       #2c2c2a;
-    --baseline:       #383835;
-    --good:           #0ca30c;
-    --warn:           #f0a068;
-    --status-critical: #d03b3b;
-    --status-warning:  #fab219;
-    --status-good:     #0ca30c;
-    --focus:          #8ab4f8;
-    --border:         rgba(255,255,255,0.10);
+    --ground:      #0F1513;
+    --rail:        #141B18;
+    --surface:     #19221F;
+    --ink:         #E5EBE8;
+    --muted:       #A6B3AD;
+    --line:        #34413C;
+    --hairline:    #25302C;
+    --accent:      #86ACE3;
+    --accent-soft: #1F3250;
+    --on-accent:   #19221F;
+    --over:        #F0965A;
+    --done:        #8DB3A0;
+    --ai:          #BE9BE0;
+    --baseline:    #6E7B75;
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
     --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
     --series-9: #00a2bd;
@@ -131,13 +173,147 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--page-plane);
-    color: var(--text-primary);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* Every figure on the page lines up in columns. */
+    font-variant-numeric: tabular-nums;
   }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
-  header h1 { font-size: 22px; margin: 0 0 4px; }
-  header p { margin: 0 0 20px; color: var(--text-secondary); font-size: 14px; }
+  button, input, select, textarea { font-family: inherit; font-variant-numeric: tabular-nums; }
+  /* Small stroke icons replace the emoji the buttons used to carry. */
+  .icon-svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
+              stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  /* --- App shell ---------------------------------------------------------
+     Sidebar + main column. Below 820px the sidebar turns into a horizontal,
+     scrollable tab bar under the top bar (see the media query further down). */
+  .app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+  .sidebar {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 18px;
+    background: var(--rail); border-right: 1px solid var(--line); padding: 20px 14px;
+  }
+  .wordmark { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; padding: 6px 12px 4px; }
+  .nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .nav-list a {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    min-height: 44px; padding: 0 12px; border-radius: 10px;
+    color: var(--ink); text-decoration: none; font-size: 15px; font-weight: 500; white-space: nowrap;
+  }
+  .nav-list a:hover { background: var(--hairline); }
+  .nav-list a[aria-current="page"] { background: var(--accent-soft); font-weight: 600; }
+  .nav-badge {
+    min-width: 24px; padding: 1px 8px; border-radius: 999px; text-align: center;
+    background: var(--over); color: var(--surface); font-size: 12px; font-weight: 700;
+  }
+  .store-box {
+    margin-top: auto; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 14px;
+  }
+  .store-box h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+  .store-box dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0 0 12px; font-size: 13px; }
+  .store-box dt { color: var(--muted); }
+  .store-box dd { margin: 0; text-align: right; }
+  .store-box button { width: 100%; justify-content: center; }
+
+  .main-col { min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px;
+    background: var(--surface); border-bottom: 1px solid var(--line); padding: 10px 28px;
+  }
+  .month-switch { display: flex; align-items: center; gap: 6px; }
+  .month-label { font-size: 18px; font-weight: 600; min-width: 150px; text-align: center; }
+  .month-day { font-size: 13px; color: var(--muted); margin-left: 6px; }
+  button.icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 10px; cursor: pointer;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  }
+  button.icon-btn:disabled { opacity: 0.35; cursor: default; }
+  .topbar-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-left: auto; }
+  .topbar #status-line { flex-basis: 100%; margin: 0; }
+
+  main { padding: 24px 28px 64px; max-width: 1280px; width: 100%; }
+  .view:not([hidden]) { display: flex; flex-direction: column; gap: 16px; }
+  .view > h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+  .view > h1:focus { outline: none; }
+  .view > h1:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+  .view .card + .card { margin-top: 0; }
+  /* Flex and grid children default to min-width: auto, which lets a wide
+     table (already inside its own scrolling wrapper) push the whole card past
+     the viewport. Zero lets the wrapper do the scrolling. */
+  .view > *, .charts-grid > *, .data-groups > * { min-width: 0; }
+  .charts-grid .span-2 { grid-column: 1 / -1; }
+
+  /* --- This month ------------------------------------------------------ */
+  .month-hero { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 8px 24px; }
+  .hero-main { min-width: 0; }
+  .card h2.hero-kicker { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+  .hero-sentence { font-size: 22px; line-height: 1.35; font-weight: 600; margin: 0 0 16px; max-width: 46ch; }
+  .hero-figures { margin: 0; border-left: 1px solid var(--hairline); display: flex; flex-direction: column; }
+  .hero-figures > div { padding: 12px 0 12px 20px; border-bottom: 1px solid var(--hairline); }
+  .hero-figures > div:last-child { border-bottom: 0; }
+  .hero-figures dt { font-size: 13px; color: var(--muted); }
+  .hero-figures dd { margin: 2px 0 0; }
+  .hero-figures .figure { display: block; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .hero-figures .figure-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .review-import-summary { font-size: 15px; margin: 0 0 12px; max-width: 70ch; }
+  #review-import-auto { font-size: 14px; color: var(--muted); }
+
+  .alert-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .alert-cards:not(:has(.alert-card:not([hidden]))) { display: none; }
+  .alert-card { border-top: 3px solid var(--over); }
+  .alert-card h2 { margin-bottom: 4px; }
+  .alert-card p { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  a.button-link {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 4px 12px;
+    border: 1px solid var(--line); border-radius: 10px; color: var(--accent);
+    font-size: 13px; font-weight: 500; text-decoration: none;
+  }
+  @media (max-width: 980px) {
+    .month-hero { grid-template-columns: 1fr; }
+    .hero-figures { border-left: 0; border-top: 1px solid var(--hairline); }
+    .hero-figures > div { padding-left: 0; }
+  }
+
+  .where-table td { vertical-align: top; }
+  .where-table code { font-size: 12px; }
+  .data-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .data-group { border: 1px solid var(--hairline); border-radius: 12px; padding: 14px 16px; }
+  .data-group h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+  .data-group .field-hint { margin: 0 0 12px; }
+  .danger-zone { border-color: var(--over); }
+
+  details.manual-details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; min-height: 44px; }
+  details.manual-details > summary::-webkit-details-marker { display: none; }
+  details.manual-details > summary::before {
+    content: ""; width: 8px; height: 8px; margin-right: 12px; flex: none;
+    border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+    transform: rotate(-45deg); transition: transform .15s ease;
+  }
+  details.manual-details[open] > summary::before { transform: rotate(45deg); }
+  details.manual-details > summary h2 { margin: 0; }
+  details.manual-details[open] > summary { margin-bottom: 12px; }
+
+  @media (max-width: 820px) {
+    .app { display: flex; flex-direction: column; }
+    /* The column's children join the page's flow so the nav can sit between
+       the top bar and the view. */
+    .main-col { display: contents; }
+    .topbar { order: 1; padding: 10px 16px; }
+    .topbar-filters { margin-left: 0; }
+    .sidebar {
+      order: 2; position: relative; height: auto; flex-direction: row; align-items: center;
+      gap: 8px; padding: 8px 16px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line);
+    }
+    .wordmark { display: none; }
+    .nav-list { flex-direction: row; }
+    .store-box { margin: 0; padding: 0; border: 0; background: none; flex: none; }
+    .store-box h2, .store-box dl { display: none; }
+    .store-box button { width: auto; }
+    main { order: 3; padding: 16px 16px 48px; }
+    .charts-grid, .meters, .stat-grid, .tiles, .data-groups { grid-template-columns: 1fr; }
+  }
 
   /* --- Accessibility primitives -------------------------------------- */
   /* Every interactive element gets the same unmistakable focus ring. The
@@ -166,23 +342,26 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
   @media (prefers-contrast: more) {
-    :root { --border: rgba(11,11,11,0.45); --text-secondary: #3a3a38; }
+    :root { --line: #6B7872; --hairline: #9AA6A0; --muted: #33403B; }
+  }
+  @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) { --line: #8D9A94; --hairline: #5F6C66; --muted: #CFD9D4; }
   }
 
   .card {
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
   }
   .card + .card { margin-top: 16px; }
-  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--text-secondary); font-weight: 600; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--ink); font-weight: 600; }
 
   .panel-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .panel-row label.filebtn {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
-    font-size: 13px; cursor: pointer; color: var(--text-primary); background: var(--page-plane);
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px;
+    font-size: 14px; font-weight: 500; cursor: pointer; color: var(--ink); background: var(--surface);
   }
   /* The file input is hidden but NOT display:none — that would take it out of
      the tab order and make every "load a file" button keyboard-unreachable.
@@ -197,25 +376,28 @@
   #status-line { font-size: 13px; color: var(--text-secondary); margin-top: 10px; }
   #status-line.warn { color: var(--warn); font-weight: 600; }
   button.primary {
-    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
-    font-size: 13px; cursor: pointer; background: var(--series-1); color: #fff; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+    border: 1px solid var(--accent); border-radius: 10px; padding: 8px 14px;
+    font-size: 14px; cursor: pointer; background: var(--accent); color: var(--on-accent); font-weight: 600;
   }
   button.primary:disabled { opacity: 0.35; cursor: default; }
   button.danger {
-    border: 1px solid var(--series-8); border-radius: 8px; padding: 8px 12px;
-    font-size: 13px; cursor: pointer; background: var(--surface-1); color: var(--series-8); font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+    border: 1px solid var(--over); border-radius: 10px; padding: 8px 14px;
+    font-size: 14px; cursor: pointer; background: var(--surface); color: var(--over); font-weight: 600;
   }
   button.danger:disabled { opacity: 0.35; cursor: default; }
   select {
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
-    font-size: 13px; background: var(--surface-1); color: var(--text-primary);
+    min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px;
+    font-size: 14px; background: var(--surface); color: var(--ink);
   }
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .tile .label { font-size: 12px; color: var(--text-secondary); }
-  .tile .value { font-size: 26px; font-weight: 600; margin-top: 4px; }
+  .tile { padding: 4px 0; }
+  .tile .label { font-size: 13px; color: var(--muted); }
+  .tile .value { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin-top: 4px; }
   .tile .value.pos { color: var(--good); }
-  .tile .value.neg { color: var(--series-8); }
+  .tile .value.neg { color: var(--over); }
 
   .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
@@ -229,18 +411,22 @@
   table th, table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--gridline); }
   table th { color: var(--text-secondary); font-weight: 600; }
   table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .scroll-table { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  /* position: relative so the absolutely-positioned .sr-only labels inside
+     row buttons are clipped by this scroller instead of escaping it and
+     widening the whole page on a phone. */
+  .scroll-table { position: relative; max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
   .scroll-table table thead th { position: sticky; top: 0; background: var(--surface-1); }
 
-  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .filters input[type=text] { flex: 1 1 200px; }
   .filters input[type=text] {
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
-    font-size: 13px; background: var(--page-plane); color: var(--text-primary); min-width: 180px;
+    min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px;
+    font-size: 14px; background: var(--surface); color: var(--ink); min-width: 200px;
   }
   .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--page-plane); color: var(--text-secondary); border: 1px solid var(--border); }
-  .pill.income { color: var(--series-1); }
-  .pill.expense { color: var(--series-2); }
-  .pill.count { color: var(--series-8); border-color: var(--series-8); }
+  .pill.income { color: var(--accent); }
+  .pill.expense { color: var(--ink); }
+  .pill.count { color: var(--surface); background: var(--over); border-color: var(--over); font-weight: 600; }
 
   .manual-hint { font-size: 12px; color: var(--text-muted); margin: -4px 0 12px; }
   .manual-form .mf-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
@@ -249,24 +435,29 @@
   }
   .manual-form label.mf-notes { flex: 1; min-width: 220px; }
   .manual-form select, .manual-form input[type=text], .manual-form input[type=date], .manual-form input[type=number] {
-    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
-    font-size: 13px; background: var(--page-plane); color: var(--text-primary); min-width: 140px;
+    min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px;
+    font-size: 14px; background: var(--surface); color: var(--ink); min-width: 140px;
   }
   .manual-form input[type=text] { min-width: 220px; width: 100%; box-sizing: border-box; }
 
   #review-empty { padding: 8px 0; }
   button.link {
-    background: none; border: 1px solid var(--border); border-radius: 8px;
-    padding: 4px 10px; font-size: 12px; color: var(--series-1); cursor: pointer;
+    display: inline-flex; align-items: center; min-height: 44px;
+    background: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 4px 12px; font-size: 13px; font-weight: 500; color: var(--accent); cursor: pointer;
   }
+  /* Inside table rows and the panel's sibling list a 44px button would make
+     every row of a 500-row table twice as tall, so these are 32px — still
+     above the 24px WCAG minimum target. */
+  td button.link, .sibling-controls button.link { min-height: 32px; }
 
   .panel-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 40;
   }
   .side-panel {
     position: fixed; top: 0; right: 0; height: 100%; width: min(380px, 92vw);
-    background: var(--surface-1); border-left: 1px solid var(--border);
-    box-shadow: -8px 0 24px rgba(0,0,0,0.15); z-index: 41;
+    background: var(--surface); border-left: 1px solid var(--line);
+    z-index: 41;
     padding: 20px; overflow-y: auto; box-sizing: border-box;
   }
   .side-panel h3 { margin: 0 0 4px; font-size: 16px; }
@@ -277,8 +468,8 @@
   }
   .panel-field .readonly { font-size: 13px; color: var(--text-primary); }
   .panel-field select, .panel-field input[type=text] {
-    width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
-    font-size: 13px; background: var(--page-plane); color: var(--text-primary); box-sizing: border-box;
+    width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px;
+    font-size: 14px; background: var(--surface); color: var(--ink); box-sizing: border-box;
   }
   .panel-field textarea {
     width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
@@ -315,7 +506,7 @@
     border: 1px solid var(--border); background: var(--page-plane); color: var(--text-secondary);
   }
   .type-badge {
-    font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    font-size: 12px; font-weight: 700;
     padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor;
   }
   .type-banner.income { border-left: 4px solid var(--series-1); }
@@ -330,24 +521,26 @@
   td.select-cell, th.select-cell { width: 28px; }
   .panel-actions { display: flex; gap: 8px; margin-top: 18px; }
   button.undo {
-    background: none; border: 1px solid var(--border); border-radius: 8px;
-    padding: 3px 10px; font-size: 12px; color: var(--series-1); cursor: pointer; margin-left: 8px;
+    min-height: 44px; background: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 3px 12px; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; margin-left: 8px;
   }
+  .panel-actions button { min-height: 44px; padding: 8px 16px; border-radius: 10px; font-size: 14px; }
+  #rp-cancel { background: var(--surface); color: var(--ink); border: 1px solid var(--line); cursor: pointer; }
 
   /* --- Monthly analysis ---------------------------------------------- */
   .analysis-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 14px; }
   .analysis-controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
   .stat {
-    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--page-plane);
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--surface);
   }
-  .stat .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+  .stat .label { font-size: 13px; color: var(--muted); }
   .stat .value { font-size: 20px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .stat .sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   /* Direction is never carried by colour alone — each delta also states
      "more"/"less" in words, for colour-blind readers and for anyone reading
      this through a screen reader. */
-  .delta.up { color: var(--series-8); }
+  .delta.up { color: var(--over); }
   .delta.down { color: var(--good); }
   .analysis-note { font-size: 12px; color: var(--text-muted); margin: 12px 0 0; }
 
@@ -367,414 +560,556 @@
   /* Derived rows are marked differently from ones a human actually opened —
      the distinction is the whole point of not copying the note. */
   .badge.auto { color: var(--text-muted); border-style: dashed; }
+  .badge.refund { color: var(--accent); border-color: var(--accent); }
   .row-note { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .table-caption { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
 </style>
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to dashboard content</a>
-<div class="wrap">
-  <header>
-    <h1>Personal Finance Dashboard</h1>
-    <p>Reads the centralized transactions store, and can ingest a new monthly bank export directly in the browser.</p>
-  </header>
+<a class="skip-link" href="#main" id="skip-link">Skip to the current view</a>
+<div class="app">
+  <nav class="sidebar" aria-label="Main">
+    <div class="wordmark">Finanças</div>
+    <ul class="nav-list">
+      <li><a href="#/month" data-view="month">This month</a></li>
+      <li><a href="#/review" data-view="review">Review <span class="nav-badge" id="nav-review-badge" hidden></span></a></li>
+      <li><a href="#/trends" data-view="trends">Trends</a></li>
+      <li><a href="#/transactions" data-view="transactions">Transactions</a></li>
+      <li><a href="#/data" data-view="data">Data</a></li>
+    </ul>
+    <!-- What is loaded, at a glance from every tab, and the one action you
+         take every month. The button opens the same picker as "Add monthly
+         file(s)" in the Data view. -->
+    <section class="store-box" aria-labelledby="h-store-box">
+      <h2 id="h-store-box">Store</h2>
+      <dl>
+        <dt>Format</dt><dd id="store-kind">Nothing loaded</dd>
+        <dt>Last modified</dt><dd id="store-modified">—</dd>
+        <dt>Rows</dt><dd id="store-rows">0</dd>
+      </dl>
+      <button class="primary" id="btn-import" type="button" disabled>Import statement</button>
+    </section>
+  </nav>
 
-<main id="main">
-  <section class="card" aria-labelledby="h-data-source">
-    <h2 id="h-data-source">Data source</h2>
-    <div class="panel-row">
-      <label class="filebtn">
-        <span aria-hidden="true">📄</span> Load transactions.csv
-        <input id="file-store" type="file" accept=".csv">
-      </label>
-      <label class="filebtn">
-        <span aria-hidden="true">🔒</span> Load encrypted (.enc)
-        <input id="file-store-enc" type="file" accept=".enc">
-      </label>
-      <label class="filebtn disabled" id="btn-monthly">
-        <span aria-hidden="true">➕</span> Add monthly file(s) (xlsx/csv)
-        <input id="file-monthly" type="file" accept=".xlsx,.xls,.csv" multiple>
-      </label>
-      <button class="danger" id="btn-clear" disabled><span aria-hidden="true">🗑</span> Clear all data</button>
-      <button class="primary" id="btn-download" disabled><span aria-hidden="true">⬇</span> Download updated transactions.csv</button>
-      <button class="primary" id="btn-download-enc" disabled><span aria-hidden="true">🔒</span> Download encrypted (.enc)</button>
-      <button class="primary" id="btn-download-overrides" disabled><span aria-hidden="true">⬇</span> Download updated category_overrides.json</button>
-      <button class="primary" id="btn-download-reviews" disabled><span aria-hidden="true">⬇</span> Download review_decisions.json</button>
-    </div>
-    <div class="panel-row" style="margin-top:10px;">
-      <label class="sr-only" for="year-filter">Filter every chart and table by year</label>
-      <select id="year-filter"></select>
-      <label class="checkbox-inline">
-        <input type="checkbox" id="exclude-meal-card">
-        Exclude Cartão Alimentação (meal card)
-      </label>
-    </div>
-    <!-- role=status makes every state change (loaded, merged, saved, failed)
-         announced by a screen reader without stealing focus. -->
-    <div id="status-line" role="status" aria-live="polite">Attempting to load ../data/transactions.csv automatically…</div>
-  </section>
-
-  <section class="card" aria-labelledby="h-manual">
-    <h2 id="h-manual">Add a transaction manually</h2>
-    <p class="manual-hint">For anything that doesn't come from a bank export — cash you received or spent, a gift, etc.</p>
-    <div class="manual-form">
-      <div class="mf-row">
-        <label for="mf-type">Type
-          <select id="mf-type">
-            <option value="Expense">Expense</option>
-            <option value="Income">Income</option>
-          </select>
-        </label>
-        <label for="mf-date">Date
-          <input type="date" id="mf-date">
-        </label>
-        <label for="mf-amount">Amount (€)
-          <input type="number" id="mf-amount" min="0" step="0.01" placeholder="0.00">
-        </label>
+  <div class="main-col">
+    <!-- Global: the month in focus, the two filters, and the status line, so
+         loads, saves and Undo are visible from every tab. -->
+    <header class="topbar">
+      <div class="month-switch" role="group" aria-label="Month in focus">
+        <button type="button" class="icon-btn" id="month-prev" aria-label="Previous month">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <span class="month-label" id="month-label">No data</span>
+        <button type="button" class="icon-btn" id="month-next" aria-label="Next month">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <span class="month-day" id="month-day"></span>
       </div>
-      <div class="mf-row">
-        <label for="mf-category">Category
-          <select id="mf-category"></select>
-        </label>
-        <!-- A picker, like the review panel's. As a free-text box this was the
-             last writer that could put an off-taxonomy pair into the store:
-             typing "Ginásio" under Alimentação created one, and leaving it
-             blank defaulted the sub-category to the *category name*, which is
-             not a pair the taxonomy contains either. -->
-        <label for="mf-subcategory">Sub-category
-          <select id="mf-subcategory"></select>
-        </label>
-        <label for="mf-method">Method
-          <select id="mf-method"></select>
-        </label>
+      <div class="topbar-filters">
+        <label class="sr-only" for="year-filter">Filter every chart and table by year</label>
+              <select id="year-filter"></select>
+        <label class="checkbox-inline">
+                <input type="checkbox" id="exclude-meal-card">
+                Exclude Cartão Alimentação (meal card)
+              </label>
       </div>
-      <div class="mf-row">
-        <label class="mf-notes" for="mf-notes">Notes
-          <input type="text" id="mf-notes" placeholder="e.g. Cash gift from parents">
-        </label>
-        <button class="primary" id="mf-add"><span aria-hidden="true">➕</span> Add transaction</button>
-      </div>
-    </div>
-  </section>
+      <!-- role=status makes every state change (loaded, merged, saved, failed)
+               announced by a screen reader without stealing focus. -->
+          <div id="status-line" role="status" aria-live="polite">Attempting to load ../data/transactions.csv automatically…</div>
+    </header>
 
-  <section class="card" aria-labelledby="h-totals">
-    <h2 id="h-totals" class="sr-only">Totals for the current filter</h2>
-    <div class="tiles" id="tiles"></div>
-  </section>
+    <main id="main">
+      <section class="view" id="view-month" aria-labelledby="h-view-month" hidden>
+        <h1 id="h-view-month" tabindex="-1">This month</h1>
+        <!-- The hero is the existing pacing card with the month's answer written
+             above it in one sentence, and the four numbers that sentence rests on
+             beside it. Budgets come in a later phase; until then "plan" is the
+             baseline average. -->
+        <section class="card month-hero" aria-labelledby="h-pacing">
+          <div class="hero-main">
+            <h2 id="h-pacing" class="hero-kicker">Spending pace through the month</h2>
+            <p class="hero-sentence" id="hero-sentence" aria-live="polite">No transactions loaded yet.</p>
+            <div class="chart-box"><canvas id="chart-pacing"></canvas></div>
+            <p class="table-caption" id="pacing-legend">Cumulative spend by day — the selected month against the baseline average.
+              A line above the baseline means you're ahead of your usual pace at the same point in the month.</p>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="pacing-table"></div>
+            </details>
+          </div>
+          <dl class="hero-figures" id="hero-figures" aria-label="The month in figures"></dl>
+        </section>
 
-  <section class="card" id="review-card" aria-labelledby="h-review">
-    <h2 id="h-review">Needs Review <span id="review-count" class="pill count"></span></h2>
-    <div id="review-empty" style="display:none; color:var(--text-secondary); font-size:13px;">
-      Nothing to review — every transaction matched a category, or is cash / a peer-to-peer transfer,
-      which are answers rather than unknowns.
-    </div>
-    <!-- This queue is only the rows nothing matched. Correcting a row the rules
-         got *wrong* is a different job with a different starting point: you
-         know the category, you just disagree with it. That belongs in the
-         Transactions table, where you can filter to the category you doubt. -->
-    <p class="field-hint">
-      Reviewing a transaction the rules got <em>wrong</em>? That's the Transactions table below —
-      filter by category and sub-category, then use “Review” on any row.
-      <button class="link" id="btn-audit-auto" type="button">Show auto-classified, unchecked rows</button>
-    </p>
-    <!-- Ad-hoc batch: tick any rows that belong together for a reason the
-         description can't express — the four MBWay transfers that were one
-         dinner split — and give them a category in one pass. Deliberately
-         creates no rule and no remembered association. -->
-    <div class="panel-row" id="review-toolbar" style="margin-bottom:10px;">
-      <label class="checkbox-inline">
-        <input type="checkbox" id="review-select-all">
-        Select rows
-      </label>
-      <button class="primary" id="btn-review-selected" disabled>
-        Review <span id="review-selected-count">0</span> selected together
-      </button>
-      <span class="hint-inline" id="review-selection-hint">
-        For transactions that belong together for a reason the description doesn't show — a dinner
-        split over several transfers. Categorizes them; remembers no rule.
-      </span>
-    </div>
-    <div class="scroll-table" id="review-table-wrap">
-      <table>
-        <caption class="sr-only">Transactions no keyword rule could categorize, newest first</caption>
-        <thead>
-          <tr>
-            <th scope="col"><span class="sr-only">Select</span></th>
-            <th scope="col">Type</th>
-            <th scope="col">Date</th><th scope="col">Notes</th><th scope="col">Current guess</th>
-            <th scope="col" class="num">Amount (€)</th><th scope="col"><span class="sr-only">Action</span></th>
-          </tr>
-        </thead>
-        <tbody id="review-body"></tbody>
-      </table>
-    </div>
-  </section>
+        <!-- Things that need you, each a link to where you deal with it. A card
+             with nothing to say is hidden rather than reading "0". -->
+        <div class="alert-cards" id="month-alerts">
+          <section class="card alert-card" id="alert-review" aria-labelledby="h-alert-review" hidden>
+            <h2 id="h-alert-review"></h2>
+            <p id="alert-review-text"></p>
+            <a class="button-link" href="#/review">Open review</a>
+          </section>
+          <section class="card alert-card" id="alert-outliers" aria-labelledby="h-alert-outliers" hidden>
+            <h2 id="h-alert-outliers"></h2>
+            <p id="alert-outliers-text"></p>
+            <button class="link" id="alert-outliers-go" type="button">See them</button>
+          </section>
+          <section class="card alert-card" id="alert-health" aria-labelledby="h-alert-health" hidden>
+            <h2 id="h-alert-health"></h2>
+            <p id="alert-health-text"></p>
+            <a class="button-link" href="#/data">See data health</a>
+          </section>
+        </div>
+        <section class="card" aria-labelledby="h-analysis">
+          <h2 id="h-analysis">Monthly analysis</h2>
+          <div class="analysis-controls">
+            <label for="analysis-month">Month
+              <select id="analysis-month"></select>
+            </label>
+            <label for="analysis-baseline">Compare against
+              <select id="analysis-baseline">
+                <option value="3">Average of the previous 3 months</option>
+                <option value="6">Average of the previous 6 months</option>
+                <option value="12">Average of the previous 12 months</option>
+              </select>
+            </label>
+          </div>
+          <!-- Placed directly under the month selector: both meters describe the
+               month currently selected there, and nothing else on the card. -->
+          <div class="meters" id="analysis-meters"></div>
+          <div class="stat-grid" id="analysis-stats"></div>
+          <p class="analysis-note" id="analysis-note"></p>
+        </section>
+        <!-- Per-month, so it sits with the other per-month cards. Two questions in
+               one place: what were the biggest single spends, and which of them are
+               unusual *for this household* rather than merely large. A €70 supermarket
+               run is the top line most months and means nothing; a €70 pharmacy visit
+               against a €12 median is the one worth opening. -->
+          <section class="card" aria-labelledby="h-biggest">
+            <h2 id="h-biggest">Major spends &amp; outliers <span id="outlier-count" class="pill count"></span></h2>
+            <div class="scroll-table" style="max-height:340px;">
+              <table>
+                <caption class="sr-only">The largest single expenses of the selected month, with unusual ones flagged</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th><th scope="col">Category</th><th scope="col">Notes</th>
+                    <th scope="col" class="num">Amount (€)</th><th scope="col" class="num">% of month</th>
+                    <th scope="col">vs usual</th>
+                  </tr>
+                </thead>
+                <tbody id="biggest-body"></tbody>
+              </table>
+            </div>
+            <p class="table-caption" id="biggest-note"></p>
+          </section>
+      </section>
 
-  <section class="card" aria-labelledby="h-analysis">
-    <h2 id="h-analysis">Monthly analysis</h2>
-    <div class="analysis-controls">
-      <label for="analysis-month">Month
-        <select id="analysis-month"></select>
-      </label>
-      <label for="analysis-baseline">Compare against
-        <select id="analysis-baseline">
-          <option value="3">Average of the previous 3 months</option>
-          <option value="6">Average of the previous 6 months</option>
-          <option value="12">Average of the previous 12 months</option>
-        </select>
-      </label>
-    </div>
-    <!-- Placed directly under the month selector: both meters describe the
-         month currently selected there, and nothing else on the card. -->
-    <div class="meters" id="analysis-meters"></div>
-    <div class="stat-grid" id="analysis-stats"></div>
-    <p class="analysis-note" id="analysis-note"></p>
-  </section>
+      <section class="view" id="view-review" aria-labelledby="h-view-review" hidden>
+        <h1 id="h-view-review" tabindex="-1">Review</h1>
+        <!-- What the latest import left you. Deliberately no "Accept all": a
+             mass Reviewed At stamp would make "reviewed" mean "clicked a button"
+             and lock those rows against future rule fixes. "Show them" opens
+             the rule-filed rows for checking instead. -->
+        <section class="card review-import" id="review-import" aria-labelledby="h-review-import" hidden>
+          <h2 id="h-review-import"></h2>
+          <p class="review-import-summary" id="review-import-summary"></p>
+          <div class="panel-row">
+            <span id="review-import-auto"></span>
+            <button class="link" id="btn-import-show" type="button">Show them</button>
+          </div>
+        </section>
+        <section class="card" id="review-card" aria-labelledby="h-review">
+            <h2 id="h-review">Needs review <span id="review-count" class="pill count"></span></h2>
+            <div id="review-empty" style="display:none; color:var(--text-secondary); font-size:13px;">
+              Nothing to review — every transaction matched a category, or is cash / a peer-to-peer transfer,
+              which are answers rather than unknowns.
+            </div>
+            <!-- This queue is only the rows nothing matched. Correcting a row the rules
+                 got *wrong* is a different job with a different starting point: you
+                 know the category, you just disagree with it. That belongs in the
+                 Transactions table, where you can filter to the category you doubt. -->
+            <p class="field-hint">
+              Reviewing a transaction the rules got <em>wrong</em>? That's the Transactions tab —
+              filter by category and sub-category, then use “Review” on any row.
+              <button class="link" id="btn-audit-auto" type="button">Show auto-classified, unchecked rows</button>
+            </p>
+            <!-- Ad-hoc batch: tick any rows that belong together for a reason the
+                 description can't express — the four MBWay transfers that were one
+                 dinner split — and give them a category in one pass. Deliberately
+                 creates no rule and no remembered association. -->
+            <div class="panel-row" id="review-toolbar" style="margin-bottom:10px;">
+              <label class="checkbox-inline">
+                <input type="checkbox" id="review-select-all">
+                Select rows
+              </label>
+              <button class="primary" id="btn-review-selected" disabled>
+                Review <span id="review-selected-count">0</span> selected together
+              </button>
+              <span class="hint-inline" id="review-selection-hint">
+                For transactions that belong together for a reason the description doesn't show — a dinner
+                split over several transfers. Categorizes them; remembers no rule.
+              </span>
+            </div>
+            <div class="scroll-table" id="review-table-wrap">
+              <table>
+                <caption class="sr-only">Transactions no keyword rule could categorize, newest first</caption>
+                <thead>
+                  <tr>
+                    <th scope="col"><span class="sr-only">Select</span></th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Date</th><th scope="col">Notes</th><th scope="col">Current guess</th>
+                    <th scope="col" class="num">Amount (€)</th><th scope="col"><span class="sr-only">Action</span></th>
+                  </tr>
+                </thead>
+                <tbody id="review-body"></tbody>
+              </table>
+            </div>
+          </section>
+      </section>
 
-  <div class="charts-grid" style="margin-top:16px;">
-    <section class="card" aria-labelledby="h-pacing">
-      <h2 id="h-pacing">Spending pace through the month</h2>
-      <div class="chart-box"><canvas id="chart-pacing"></canvas></div>
-      <p class="table-caption">Cumulative spend by day — the selected month against the baseline average.
-        A line above the baseline means you're ahead of your usual pace at the same point in the month.</p>
-    </section>
-    <section class="card" aria-labelledby="h-cat-trend">
-      <h2 id="h-cat-trend">Category spend by month</h2>
-      <div class="chart-box"><canvas id="chart-cat-trend"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="cat-trend-table"></div>
-      </details>
-    </section>
-    <section class="card" aria-labelledby="h-top-sub">
-      <h2 id="h-top-sub">Top sub-categories this month</h2>
-      <div class="chart-box"><canvas id="chart-top-sub"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="top-sub-table"></div>
-      </details>
-    </section>
-  </div>
+      <section class="view" id="view-trends" aria-labelledby="h-view-trends" hidden>
+        <h1 id="h-view-trends" tabindex="-1">Trends</h1>
+        <section class="card" aria-labelledby="h-totals">
+          <h2 id="h-totals" class="sr-only">Totals for the current filter</h2>
+          <div class="tiles" id="tiles"></div>
+        </section>
+        <div class="charts-grid">
+          <section class="card span-2" aria-labelledby="h-cat-trend">
+            <h2 id="h-cat-trend">Category spend by month</h2>
+            <div class="chart-box"><canvas id="chart-cat-trend"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="cat-trend-table"></div>
+            </details>
+          </section>
+          <section class="card" aria-labelledby="h-top-sub">
+            <h2 id="h-top-sub">Top sub-categories this month</h2>
+            <div class="chart-box"><canvas id="chart-top-sub"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="top-sub-table"></div>
+            </details>
+          </section>
+          <section class="card" aria-labelledby="h-trend">
+            <h2 id="h-trend">Income vs expenses by month</h2>
+            <div class="chart-box"><canvas id="chart-trend"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="trend-table"></div>
+            </details>
+          </section>
+          <section class="card" aria-labelledby="h-net">
+            <h2 id="h-net">Net balance by month</h2>
+            <div class="chart-box"><canvas id="chart-net"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="net-table"></div>
+            </details>
+          </section>
+          <section class="card" aria-labelledby="h-exp-cat">
+            <h2 id="h-exp-cat">Expense categories</h2>
+            <div class="chart-box"><canvas id="chart-expense-cat"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="expense-cat-table"></div>
+            </details>
+          </section>
+          <section class="card" aria-labelledby="h-inc-cat">
+            <h2 id="h-inc-cat">Income categories</h2>
+            <div class="chart-box"><canvas id="chart-income-cat"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="income-cat-table"></div>
+            </details>
+          </section>
+          <section class="card" aria-labelledby="h-exp-met">
+            <h2 id="h-exp-met">Expense methods</h2>
+            <div class="chart-box"><canvas id="chart-expense-method"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="expense-method-table"></div>
+            </details>
+          </section>
+          <section class="card" aria-labelledby="h-inc-met">
+            <h2 id="h-inc-met">Income methods</h2>
+            <div class="chart-box"><canvas id="chart-income-method"></canvas></div>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="income-method-table"></div>
+            </details>
+          </section>
+        </div>
+        <!-- One line, one question: "how has THIS been going?"
+               Every other chart on the page answers a question about a month — what it
+               totalled, what drove it, how it compares. None of them answer the question
+               you ask about a single category, which is whether it is drifting up over
+               time. The stacked Category-spend-by-month chart technically contains the
+               answer, but reading one category out of nine stacked segments is not
+               reading, it is guessing.
+               Built from the TAXONOMY rather than from the values the store happens to
+               contain, so a category with no transactions yet (Cabelo, today) is
+               selectable and honestly shows a flat zero instead of vanishing from the
+               picker. -->
+          <section class="card" aria-labelledby="h-focus">
+            <h2 id="h-focus">Track one category over time</h2>
+            <div class="analysis-controls">
+              <label for="focus-pick">Category or sub-category
+                <select id="focus-pick"></select>
+              </label>
+              <label for="focus-mode">Show
+                <select id="focus-mode">
+                  <option value="amount">Amount per month</option>
+                  <option value="share">Share of that month&rsquo;s total</option>
+                  <option value="cumulative">Running total</option>
+                </select>
+              </label>
+            </div>
+            <div class="stat-grid" id="focus-stats"></div>
+            <div class="chart-box" style="margin-top:14px;"><canvas id="chart-focus"></canvas></div>
+            <p class="table-caption" id="focus-note"></p>
+            <details class="table-toggle">
+              <summary>View as table</summary>
+              <div id="focus-table"></div>
+            </details>
+          </section>
+        <section class="card" aria-labelledby="h-recurring">
+          <h2 id="h-recurring">Recurring commitments</h2>
+          <p class="field-hint" style="margin-top:-6px;">Across the whole loaded history, not the selected month — a commitment is only visible once it has repeated.</p>
+          <div class="scroll-table" style="max-height:280px;">
+            <table>
+              <caption class="sr-only">Charges that repeat monthly or yearly for a consistent amount</caption>
+              <thead>
+                <tr>
+                  <th scope="col">What</th><th scope="col" class="num">Typical</th>
+                  <th scope="col" class="num">Months</th><th scope="col" class="num">Per year</th>
+                </tr>
+              </thead>
+              <tbody id="recurring-body"></tbody>
+            </table>
+          </div>
+          <p class="table-caption" id="recurring-note"></p>
+        </section>
+        <!-- Overall analysis: everything loaded, not the selected month. Two views,
+               because they answer different questions — "is this month drifting from
+               the last?" and "is this year better than last?" — and a single table
+               trying to do both would answer neither. -->
+          <section class="card" aria-labelledby="h-mom">
+            <h2 id="h-mom">Month vs month</h2>
+            <div class="scroll-table" style="max-height:360px;">
+              <table>
+                <caption class="sr-only">Every month compared with the one before it</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Month</th>
+                    <th scope="col" class="num">Income</th>
+                    <th scope="col" class="num">Spending</th>
+                    <th scope="col" class="num">Net</th>
+                    <th scope="col" class="num">Kept</th>
+                    <th scope="col" class="num">Spending vs prev</th>
+                  </tr>
+                </thead>
+                <tbody id="mom-body"></tbody>
+              </table>
+            </div>
+            <p class="table-caption" id="mom-note"></p>
+          </section>
+        <section class="card" aria-labelledby="h-yearly">
+          <h2 id="h-yearly">Yearly analysis</h2>
+          <div class="scroll-table">
+            <table>
+              <caption class="sr-only">Totals per calendar year</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Year</th>
+                  <th scope="col" class="num">Months</th>
+                  <th scope="col" class="num">Income</th>
+                  <th scope="col" class="num">Spending</th>
+                  <th scope="col" class="num">Invested</th>
+                  <th scope="col" class="num">Net</th>
+                  <th scope="col" class="num">Kept</th>
+                  <th scope="col" class="num">Avg spend/mo</th>
+                </tr>
+              </thead>
+              <tbody id="yearly-body"></tbody>
+            </table>
+          </div>
+          <p class="table-caption" id="yearly-note"></p>
+        </section>
+      </section>
 
-  <!-- One line, one question: "how has THIS been going?"
-       Every other chart on the page answers a question about a month — what it
-       totalled, what drove it, how it compares. None of them answer the question
-       you ask about a single category, which is whether it is drifting up over
-       time. The stacked Category-spend-by-month chart technically contains the
-       answer, but reading one category out of nine stacked segments is not
-       reading, it is guessing.
-       Built from the TAXONOMY rather than from the values the store happens to
-       contain, so a category with no transactions yet (Cabelo, today) is
-       selectable and honestly shows a flat zero instead of vanishing from the
-       picker. -->
-  <section class="card" aria-labelledby="h-focus">
-    <h2 id="h-focus">Track one category over time</h2>
-    <div class="analysis-controls">
-      <label for="focus-pick">Category or sub-category
-        <select id="focus-pick"></select>
-      </label>
-      <label for="focus-mode">Show
-        <select id="focus-mode">
-          <option value="amount">Amount per month</option>
-          <option value="share">Share of that month&rsquo;s total</option>
-          <option value="cumulative">Running total</option>
-        </select>
-      </label>
-    </div>
-    <div class="stat-grid" id="focus-stats"></div>
-    <div class="chart-box" style="margin-top:14px;"><canvas id="chart-focus"></canvas></div>
-    <p class="table-caption" id="focus-note"></p>
-    <details class="table-toggle">
-      <summary>View as table</summary>
-      <div id="focus-table"></div>
-    </details>
-  </section>
-
-  <!-- Per-month, so it sits with the other per-month cards. Two questions in
-       one place: what were the biggest single spends, and which of them are
-       unusual *for this household* rather than merely large. A €70 supermarket
-       run is the top line most months and means nothing; a €70 pharmacy visit
-       against a €12 median is the one worth opening. -->
-  <section class="card" aria-labelledby="h-biggest">
-    <h2 id="h-biggest">Major spends &amp; outliers <span id="outlier-count" class="pill count"></span></h2>
-    <div class="scroll-table" style="max-height:340px;">
-      <table>
-        <caption class="sr-only">The largest single expenses of the selected month, with unusual ones flagged</caption>
-        <thead>
-          <tr>
-            <th scope="col">Date</th><th scope="col">Category</th><th scope="col">Notes</th>
-            <th scope="col" class="num">Amount (€)</th><th scope="col" class="num">% of month</th>
-            <th scope="col">vs usual</th>
-          </tr>
-        </thead>
-        <tbody id="biggest-body"></tbody>
-      </table>
-    </div>
-    <p class="table-caption" id="biggest-note"></p>
-  </section>
-
-  <!-- Overall analysis: everything loaded, not the selected month. Two views,
-       because they answer different questions — "is this month drifting from
-       the last?" and "is this year better than last?" — and a single table
-       trying to do both would answer neither. -->
-  <section class="card" aria-labelledby="h-mom">
-    <h2 id="h-mom">Month vs month</h2>
-    <div class="scroll-table" style="max-height:360px;">
-      <table>
-        <caption class="sr-only">Every month compared with the one before it</caption>
-        <thead>
-          <tr>
-            <th scope="col">Month</th>
-            <th scope="col" class="num">Income</th>
-            <th scope="col" class="num">Spending</th>
-            <th scope="col" class="num">Net</th>
-            <th scope="col" class="num">Kept</th>
-            <th scope="col" class="num">Spending vs prev</th>
-          </tr>
-        </thead>
-        <tbody id="mom-body"></tbody>
-      </table>
-    </div>
-    <p class="table-caption" id="mom-note"></p>
-  </section>
-
-  <section class="card" aria-labelledby="h-yearly">
-    <h2 id="h-yearly">Yearly analysis</h2>
-    <div class="scroll-table">
-      <table>
-        <caption class="sr-only">Totals per calendar year</caption>
-        <thead>
-          <tr>
-            <th scope="col">Year</th>
-            <th scope="col" class="num">Months</th>
-            <th scope="col" class="num">Income</th>
-            <th scope="col" class="num">Spending</th>
-            <th scope="col" class="num">Invested</th>
-            <th scope="col" class="num">Net</th>
-            <th scope="col" class="num">Kept</th>
-            <th scope="col" class="num">Avg spend/mo</th>
-          </tr>
-        </thead>
-        <tbody id="yearly-body"></tbody>
-      </table>
-    </div>
-    <p class="table-caption" id="yearly-note"></p>
-  </section>
-
-  <section class="card" aria-labelledby="h-health">
-    <h2 id="h-health">Data health</h2>
-    <ul class="health-list" id="health-list"></ul>
-  </section>
-
-  <div class="charts-grid" style="margin-top:16px;">
-    <section class="card" aria-labelledby="h-trend">
-      <h2 id="h-trend">Income vs Expenses by month</h2>
-      <div class="chart-box"><canvas id="chart-trend"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="trend-table"></div>
-      </details>
-    </section>
-    <section class="card" aria-labelledby="h-net">
-      <h2 id="h-net">Net balance by month</h2>
-      <div class="chart-box"><canvas id="chart-net"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="net-table"></div>
-      </details>
-    </section>
-    <section class="card" aria-labelledby="h-recurring">
-      <h2 id="h-recurring">Recurring commitments</h2>
-      <p class="field-hint" style="margin-top:-6px;">Across the whole loaded history, not the selected month — a commitment is only visible once it has repeated.</p>
-      <div class="scroll-table" style="max-height:280px;">
-        <table>
-          <caption class="sr-only">Charges that repeat monthly for a consistent amount</caption>
-          <thead>
-            <tr>
-              <th scope="col">What</th><th scope="col" class="num">Typical</th>
-              <th scope="col" class="num">Months</th><th scope="col" class="num">Per year</th>
-            </tr>
-          </thead>
-          <tbody id="recurring-body"></tbody>
-        </table>
-      </div>
-      <p class="table-caption" id="recurring-note"></p>
-    </section>
-    <section class="card" aria-labelledby="h-exp-cat">
-      <h2 id="h-exp-cat">Expense categories</h2>
-      <div class="chart-box"><canvas id="chart-expense-cat"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="expense-cat-table"></div>
-      </details>
-    </section>
-    <section class="card" aria-labelledby="h-inc-cat">
-      <h2 id="h-inc-cat">Income categories</h2>
-      <div class="chart-box"><canvas id="chart-income-cat"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="income-cat-table"></div>
-      </details>
-    </section>
-    <section class="card" aria-labelledby="h-exp-met">
-      <h2 id="h-exp-met">Expense methods</h2>
-      <div class="chart-box"><canvas id="chart-expense-method"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="expense-method-table"></div>
-      </details>
-    </section>
-    <section class="card" aria-labelledby="h-inc-met">
-      <h2 id="h-inc-met">Income methods</h2>
-      <div class="chart-box"><canvas id="chart-income-method"></canvas></div>
-      <details class="table-toggle">
-        <summary>View as table</summary>
-        <div id="income-method-table"></div>
-      </details>
-    </section>
-  </div>
-
-  <section class="card" aria-labelledby="h-transactions">
-    <h2 id="h-transactions">Transactions</h2>
-    <div class="filters">
-      <label class="sr-only" for="search-box">Search notes, review notes, category or sub-category</label>
-      <input type="text" id="search-box" placeholder="Search notes / category…">
-      <label class="sr-only" for="type-filter">Filter by type</label>
-      <select id="type-filter">
-        <option value="">All types</option>
-        <option value="Income">Income</option>
-        <option value="Expense">Expense</option>
-      </select>
-      <label class="sr-only" for="cat-filter">Filter by category</label>
-      <select id="cat-filter"><option value="">All categories</option></select>
-      <label class="sr-only" for="subcat-filter">Filter by sub-category</label>
-      <select id="subcat-filter"><option value="">All sub-categories</option></select>
+      <section class="view" id="view-transactions" aria-labelledby="h-view-transactions" hidden>
+        <h1 id="h-view-transactions" tabindex="-1">Transactions</h1>
+        <details class="card manual-details" id="manual-details">
+          <summary><h2 id="h-manual">Add a transaction by hand</h2></summary>
+          <p class="manual-hint">For anything that doesn't come from a bank export — cash you received or spent, a gift, etc.</p>
+          <div class="manual-form">
+            <div class="mf-row">
+              <label for="mf-type">Type
+                <select id="mf-type">
+                  <option value="Expense">Expense</option>
+                  <option value="Income">Income</option>
+                </select>
+              </label>
+              <label for="mf-date">Date
+                <input type="date" id="mf-date">
+              </label>
+              <label for="mf-amount">Amount (€)
+                <input type="number" id="mf-amount" min="0" step="0.01" placeholder="0.00">
+              </label>
+            </div>
+            <div class="mf-row">
+              <label for="mf-category">Category
+                <select id="mf-category"></select>
+              </label>
+              <!-- A picker, like the review panel's. As a free-text box this was the
+                   last writer that could put an off-taxonomy pair into the store:
+                   typing "Ginásio" under Alimentação created one, and leaving it
+                   blank defaulted the sub-category to the *category name*, which is
+                   not a pair the taxonomy contains either. -->
+              <label for="mf-subcategory">Sub-category
+                <select id="mf-subcategory"></select>
+              </label>
+              <label for="mf-method">Method
+                <select id="mf-method"></select>
+              </label>
+            </div>
+            <div class="mf-row">
+              <label class="mf-notes" for="mf-notes">Notes
+                <input type="text" id="mf-notes" placeholder="e.g. Cash gift from parents">
+              </label>
+              <button class="primary" id="mf-add"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Add transaction</button>
+            </div>
+          </div>
+        </details>
+        <section class="card" aria-labelledby="h-transactions">
+          <h2 id="h-transactions">Transactions</h2>
+          <div class="filters">
+            <label class="sr-only" for="search-box">Search notes, review notes, category or sub-category</label>
+            <input type="text" id="search-box" placeholder="Search notes / category…">
+            <label class="sr-only" for="type-filter">Filter by type</label>
+            <select id="type-filter">
+              <option value="">All types</option>
+              <option value="Income">Income</option>
+              <option value="Expense">Expense</option>
+            </select>
+            <label class="sr-only" for="cat-filter">Filter by category</label>
+            <select id="cat-filter"><option value="">All categories</option></select>
+            <label class="sr-only" for="subcat-filter">Filter by sub-category</label>
+            <select id="subcat-filter"><option value="">All sub-categories</option></select>
+            <label class="sr-only" for="import-filter">Filter by import file</label>
+      <select id="import-filter"><option value="">All imports</option></select>
       <label class="sr-only" for="review-filter">Filter by review state</label>
-      <select id="review-filter">
-        <option value="">Any review state</option>
-        <option value="queued">Awaiting an answer</option>
-        <option value="auto">Auto-classified, unchecked</option>
-        <option value="reviewed">Reviewed by hand</option>
-      </select>
-      <button class="link" id="btn-clear-filters" type="button">Clear filters</button>
-    </div>
-    <div class="scroll-table">
-      <table>
-        <caption class="sr-only">Transactions matching the current filters, newest first</caption>
-        <thead>
-          <tr>
-            <th scope="col">Date</th><th scope="col">Type</th><th scope="col">Category</th>
-            <th scope="col">Sub-category</th><th scope="col">Method</th>
-            <th scope="col" class="num">Amount (€)</th><th scope="col">Notes</th>
-            <th scope="col"><span class="sr-only">Action</span></th>
-          </tr>
-        </thead>
-        <tbody id="tx-body"></tbody>
-      </table>
-    </div>
-    <p class="table-caption" id="tx-count"></p>
-  </section>
-</main>
+            <select id="review-filter">
+              <option value="">Any review state</option>
+              <option value="queued">Awaiting an answer</option>
+              <option value="auto">Auto-classified, unchecked</option>
+              <option value="reviewed">Reviewed by hand</option>
+            </select>
+            <button class="link" id="btn-clear-filters" type="button">Clear filters</button>
+          </div>
+          <div class="scroll-table">
+            <table>
+              <caption class="sr-only">Transactions matching the current filters, newest first</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th><th scope="col">Type</th><th scope="col">Category</th>
+                  <th scope="col">Sub-category</th><th scope="col">Method</th>
+                  <th scope="col" class="num">Amount (€)</th><th scope="col">Notes</th>
+                  <th scope="col"><span class="sr-only">Action</span></th>
+                </tr>
+              </thead>
+              <tbody id="tx-body"></tbody>
+            </table>
+          </div>
+          <p class="table-caption" id="tx-count"></p>
+        </section>
+      </section>
+
+      <section class="view" id="view-data" aria-labelledby="h-view-data" hidden>
+        <h1 id="h-view-data" tabindex="-1">Data</h1>
+        <section class="card" aria-labelledby="h-data-source">
+          <h2 id="h-data-source">Files</h2>
+          <div class="data-groups">
+            <div class="data-group" role="group" aria-labelledby="h-data-load">
+              <h3 id="h-data-load">Load</h3>
+              <p class="field-hint">Replace what is loaded with a store file. An encrypted one is decrypted
+                in this tab; the passphrase never leaves it.</p>
+              <div class="panel-row">
+                <label class="filebtn">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg> Load transactions.csv
+                        <input id="file-store" type="file" accept=".csv">
+                      </label>
+                <label class="filebtn">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Load encrypted (.enc)
+                        <input id="file-store-enc" type="file" accept=".enc">
+                      </label>
+              </div>
+            </div>
+            <div class="data-group" role="group" aria-labelledby="h-data-add">
+              <h3 id="h-data-add">Add</h3>
+              <p class="field-hint">Bank exports (xlsx, xls or csv), several at once. Transactions already in
+                the store, or repeated across the files, are skipped.</p>
+              <div class="panel-row">
+                <label class="filebtn disabled" id="btn-monthly">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Add monthly file(s) (xlsx/csv)
+                        <input id="file-monthly" type="file" accept=".xlsx,.xls,.csv" multiple>
+                      </label>
+              </div>
+            </div>
+            <div class="data-group" role="group" aria-labelledby="h-data-save">
+              <h3 id="h-data-save">Save and export</h3>
+              <p class="field-hint">With the local server running, reviews, rules and the store are saved to
+                data/ as you go. These are copies for when it isn't.</p>
+              <div class="panel-row">
+                <button class="primary" id="btn-download" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download updated transactions.csv</button>
+                <button class="primary" id="btn-download-enc" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Download encrypted (.enc)</button>
+                <button class="primary" id="btn-download-overrides" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download updated category_overrides.json</button>
+                <button class="primary" id="btn-download-reviews" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Download review_decisions.json</button>
+              </div>
+            </div>
+            <div class="data-group danger-zone" role="group" aria-labelledby="h-data-danger">
+              <h3 id="h-data-danger">Danger zone</h3>
+              <p class="field-hint">Empties this tab's working copy. Nothing on disk changes, and saved review
+                decisions come back as the rows do.</p>
+              <div class="panel-row">
+                <button class="danger" id="btn-clear" disabled><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg> Clear all data</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="h-health">
+          <h2 id="h-health">Data health</h2>
+          <ul class="health-list" id="health-list"></ul>
+        </section>
+        <!-- Static on purpose: where things are is a fact about the project,
+             not about what is loaded. Kept in step with .gitignore and
+             scripts/install_git_hooks.py. -->
+        <section class="card" aria-labelledby="h-data-where">
+          <h2 id="h-data-where">Where your data lives</h2>
+          <table class="where-table">
+            <caption class="sr-only">Files in data/, whether they are encrypted, and whether git may hold them</caption>
+            <thead><tr><th scope="col">File</th><th scope="col">Holds</th><th scope="col">In git?</th></tr></thead>
+            <tbody>
+              <tr><td><code>data/transactions.csv</code></td><td>The store, in plain text. What this page loads and saves.</td>
+                  <td>No — gitignored, and the pre-commit hook refuses it.</td></tr>
+              <tr><td><code>data/transactions.csv.enc</code></td><td>The store, encrypted (AES-256-GCM, your passphrase).</td>
+                  <td>Yes — the only copy meant for git.</td></tr>
+              <tr><td><code>data/review_decisions.json</code></td><td>Your reviews and notes, so they survive a rebuild.</td>
+                  <td>No — gitignored and blocked by the hook.</td></tr>
+              <tr><td><code>data/category_overrides.json</code></td><td>Rules you taught: merchant keywords and peer rules.</td>
+                  <td>Yes — but a peer rule holds a person's name, so check before committing.</td></tr>
+              <tr><td><code>data/transactions.backup-*.csv</code></td><td>Copies made by reset_store.py and recategorize.py.</td>
+                  <td>No — plain text, gitignored.</td></tr>
+              <tr><td>Bank exports (<code>.xlsx</code>, <code>.xls</code>)</td><td>Raw statements. Keep them outside the repo.</td>
+                  <td>No — ignored everywhere and blocked by the hook.</td></tr>
+            </tbody>
+          </table>
+          <p class="field-hint">Encrypt before committing with <code>python3 scripts/encrypt_store.py</code>; decrypt with
+            <code>scripts/decrypt_store.py</code>, or load the .enc file above. The local server only ever writes the
+            three files the page saves, and only on 127.0.0.1.</p>
+        </section>
+      </section>
+    </main>
+  </div>
 </div>
 
 <div class="panel-backdrop" id="review-panel-backdrop" hidden></div>
@@ -811,6 +1146,18 @@
     <ul class="sibling-list" id="rp-batch-list"></ul>
     <p class="field-hint">These are categorized together as a one-off. Nothing about the grouping
       is remembered — no rule is created, and a future transaction from any of them is unaffected.</p>
+  </div>
+
+  <!-- Only for money coming in. A refund is filed as a negative expense under
+       what was bought, so it comes off that category instead of counting as
+       income — see REFUNDS in finance_tracker/taxonomy.py. -->
+  <div class="panel-field remember-field" id="rp-refund-field">
+    <label class="checkbox">
+      <input type="checkbox" id="rp-refund">
+      <span>This is a refund of an earlier purchase</span>
+    </label>
+    <p class="hint">Filed under what was bought, as money back: it lowers that category's spending
+      instead of counting as income.</p>
   </div>
 
   <div class="panel-field">
@@ -1040,6 +1387,31 @@ const RAIL_MBWAY = compileRule(["mbway", "mb way"]);
 const RAIL_TRANSFER = compileRule(["transferencia", "transferencias", "trf", "trf imed"]);
 const RAIL_MEAL_CARD = compileRule(["cartao alimentacao", "coverflex", "edenred"]);
 const GATEWAY_RE = compileRule(GATEWAY_PATTERNS);
+const REFUND_RE = compileRule(REFUND_PATTERNS);
+
+// A refund is money in that undoes a purchase ("Devolução", "Estorno"). It is
+// categorized on the expense side and stored as a NEGATIVE expense under the
+// purchase's pair, so every total nets on its own. Mirrors
+// categorize.is_refund(); see REFUNDS in taxonomy.py.
+function isRefund(description, amount) {
+  return amount > 0 && REFUND_RE.test(normalize(description));
+}
+// A stored row is a refund when it is an Expense with a negative amount.
+// Mirrors taxonomy.is_refund_row().
+function isRefundRow(r) {
+  return r.Type === TYPE_EXPENSE && Number(r["Amount (€)"]) < 0;
+}
+// Give a row the refund shape asked for; true if it changed. Only incoming
+// money can switch — a purchase is never turned into a refund. Mirrors
+// reviews._set_refund().
+function setRefundShape(r, refund) {
+  const currently = isRefundRow(r);
+  if (refund === currently || !(currently || r.Type === TYPE_INCOME)) return false;
+  const amount = Math.abs(Number(r["Amount (€)"]) || 0);
+  r.Type = refund ? TYPE_EXPENSE : TYPE_INCOME;
+  r["Amount (€)"] = refund ? -amount : amount;
+  return true;
+}
 
 function overlayMethod(normalized, suggestedMethod) {
   if (RAIL_MEAL_CARD.test(normalized)) return MEAL_CARD_METHOD;
@@ -1080,7 +1452,9 @@ function matchOverride(normalized, txnType, peer) {
 
 function categorize(description, amount) {
   const normalized = normalize(description);
-  const isIncome = amount > 0;
+  // A refund is money in, but it answers "what was bought", so it goes down
+  // the expense side. Mirrors categorize.categorize_transaction.
+  const isIncome = amount > 0 && !REFUND_RE.test(normalized);
   const txnType = isIncome ? "income" : "expense";
   const defaultRail = isIncome ? "Transferência" : "Cartão";
 
@@ -1235,9 +1609,34 @@ function parseDateFlexible(value) {
   return null;
 }
 
+// Mirrors loader._to_amount(). An xlsx cell arrives as a number and needs
+// nothing; CSV text arrives in either convention, and a Portuguese bank writes
+// "1.650,00". This used to swap the first comma for a dot and parseFloat the
+// result, so "1.650,00" became 1.65 — every CSV amount over €999 was silently
+// read a thousand times too small. Now whichever of "." or "," comes last is
+// the decimal point and the other is a thousands separator; a lone comma is a
+// decimal comma; a leading or trailing "-" is the sign ("12,34-").
+// Returns null when the value can't be read, and the row is skipped.
+const AMOUNT_TEXT_RE = /^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+
 function parseAmount(value) {
-  const n = parseFloat(String(value).replace(",", ".").trim());
-  return isNaN(n) ? null : n;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  let text = String(value ?? "").trim().replace(/\u00a0/g, "").replace(/ /g, "");
+  if (!text || ["nan", "none", "null", "undefined"].includes(text.toLowerCase())) return null;
+  const negative = text.endsWith("-") || text.startsWith("-");
+  text = text.replace(/^[-+]+|[-+]+$/g, "");
+  const lastDot = text.lastIndexOf("."), lastComma = text.lastIndexOf(",");
+  if (lastDot >= 0 && lastComma >= 0) {
+    const decimal = lastDot > lastComma ? "." : ",";
+    const thousands = decimal === "." ? "," : ".";
+    text = text.split(thousands).join("").split(decimal).join(".");
+  } else if (lastComma >= 0) {
+    text = text.split(",").join(".");
+  }
+  // Strict, like Python's float(): parseFloat("12abc") would happily say 12.
+  if (!AMOUNT_TEXT_RE.test(text)) return null;
+  const amount = Number(text);
+  return negative && amount > 0 ? -amount : amount;
 }
 
 function rawRowsToTransactions(rows, sourceFileName) {
@@ -1259,14 +1658,17 @@ function rawRowsToTransactions(rows, sourceFileName) {
 
     const [category, subCategory, method] = categorize(description, amount);
     const [year, month] = dateIso.split("-").map(Number);
+    // Refunds become negative expenses; the id still hashes the raw amount.
+    const refund = isRefund(description, amount);
+    const stored = Math.round(Math.abs(amount) * 100) / 100;
     out.push({
       transaction_id: makeTransactionId(dateIso, description, amount),
       Date: dateIso,
-      Type: amount > 0 ? TYPE_INCOME : TYPE_EXPENSE,
+      Type: amount > 0 && !refund ? TYPE_INCOME : TYPE_EXPENSE,
       Category: category,
       "Sub-category": subCategory,
       Method: method,
-      "Amount (€)": Math.round(Math.abs(amount) * 100) / 100,
+      "Amount (€)": refund ? -stored : stored,
       Notes: description,
       // Filled in only by a manual review — a freshly parsed bank row has
       // none yet. applyReviewsToStore() puts any saved one back on arrival.
@@ -1442,7 +1844,8 @@ let storeSaveTimer = null;
 
 function saveStoreToDataFolder() {
   if (!storeSaveArmed || !store.length) return Promise.resolve(false);
-  return saveToDataFolder("transactions.csv", sortedCsvText(), "text/csv");
+  return saveToDataFolder("transactions.csv", sortedCsvText(), "text/csv")
+    .then(ok => { if (ok) { storeInfo.modified = new Date(); renderStoreBox(); } return ok; });
 }
 
 // Debounced: one batch review rewrites twenty rows in a single click, and that
@@ -1473,6 +1876,7 @@ function recordReviewDecision(row, reviewNote) {
     review_note: reviewNote || "",
     reviewed_at: row[REVIEWED_AT],
     notes: row.Notes || "",
+    ...(isRefundRow(row) ? { refund: true } : {}),
   };
   reviewsDirty = true;
   persistReviewsToLocalStorage();
@@ -1493,6 +1897,11 @@ function applyReviewsToStore() {
     const saved = reviewDecisions[row.transaction_id];
     if (!saved) continue;
 
+    // The refund shape first: it decides the type, and the type decides which
+    // taxonomy the saved pair is placed against. A decision without the flag
+    // was made on a row filed by its sign, so it puts the row back there.
+    const reshaped = setRefundShape(row, Boolean(saved.refund));
+
     // Map the saved pair onto today's taxonomy before writing it. A decision
     // nobody can place keeps its note and timestamp — that is the research the
     // person actually did — but not its category, which would otherwise put a
@@ -1507,7 +1916,7 @@ function applyReviewsToStore() {
       delete decision.sub_category;
     }
 
-    let changed = false;
+    let changed = reshaped;
     const fields = [["category", "Category"], ["sub_category", "Sub-category"],
                     ["method", "Method"], ["review_note", REVIEW_NOTE],
                     ["reviewed_at", REVIEWED_AT]];
@@ -1539,6 +1948,7 @@ function harvestReviewsFromStore() {
       review_note: row[REVIEW_NOTE] || "",
       reviewed_at: row[REVIEWED_AT],
       notes: row.Notes || "",
+      ...(isRefundRow(row) ? { refund: true } : {}),
     };
     harvested++;
   }
@@ -1569,7 +1979,10 @@ function applyOverridesToStore() {
     if (!isUnclassified(r)) continue;
     const signedAmount = r.Type === TYPE_INCOME ? Number(r["Amount (€)"]) : -Number(r["Amount (€)"]);
     const [cat, sub, method] = categorize(r.Notes, signedAmount);
-    if (cat !== r.Category || sub !== r["Sub-category"]) {
+    // An unanswered refund word on an income row: today's rules file it on the
+    // expense side, so the row takes the refund shape along with the pair.
+    const reshaped = r.Type === TYPE_INCOME && isRefund(r.Notes, signedAmount) && setRefundShape(r, true);
+    if (reshaped || cat !== r.Category || sub !== r["Sub-category"]) {
       r.Category = cat;
       r["Sub-category"] = sub;
       r.Method = method;
@@ -1619,6 +2032,8 @@ async function tryAutoLoad() {
     const res = await fetch("../data/transactions.csv");
     if (!res.ok) throw new Error("not found");
     store = parseStoreCsv(await res.text());
+    const modified = res.headers.get("Last-Modified");
+    noteStoreSource("Plaintext CSV in data/", modified ? new Date(modified) : null);
     setStatus(`Loaded data/transactions.csv automatically — ${store.length} transactions.`);
     onStoreLoaded();
   } catch (e) {
@@ -1778,7 +2193,8 @@ document.getElementById("btn-clear").addEventListener("click", () => {
   document.getElementById("btn-download-enc").disabled = true;
   document.getElementById("btn-clear").disabled = true;
   document.getElementById("btn-monthly").classList.remove("disabled");
-  setStatus("Cleared. Upload monthly files below to rebuild the store from scratch — duplicates within and across the files you add are still detected automatically, and saved review decisions are re-applied as the rows come back.");
+  noteStoreSource(null, null);
+  setStatus("Cleared. Upload monthly files in the Data tab to rebuild the store from scratch — duplicates within and across the files you add are still detected automatically, and saved review decisions are re-applied as the rows come back.");
   renderAll();
 });
 
@@ -1790,6 +2206,7 @@ document.getElementById("file-store").addEventListener("change", (e) => {
     store = parseStoreCsv(reader.result);
     pendingAdded = 0; pendingDuplicate = 0;
     document.getElementById("btn-download").disabled = true;
+    noteStoreSource(`Plaintext CSV (${file.name})`, new Date(file.lastModified));
     setStatus(`Loaded ${file.name} — ${store.length} transactions.`);
     onStoreLoaded();
   };
@@ -1808,6 +2225,7 @@ document.getElementById("file-store-enc").addEventListener("change", (e) => {
       store = parseStoreCsv(new TextDecoder().decode(plaintextBytes));
       pendingAdded = 0; pendingDuplicate = 0;
       document.getElementById("btn-download").disabled = true;
+      noteStoreSource(`Encrypted (${file.name})`, new Date(file.lastModified));
       setStatus(`Decrypted and loaded ${file.name} — ${store.length} transactions.`);
       onStoreLoaded();
     } catch (err) {
@@ -1920,20 +2338,24 @@ document.getElementById("type-filter").addEventListener("change", () => { refres
 document.getElementById("cat-filter").addEventListener("change", () => { refreshSubcategoryFilter(); renderTable(); });
 document.getElementById("subcat-filter").addEventListener("change", renderTable);
 document.getElementById("review-filter").addEventListener("change", renderTable);
+document.getElementById("import-filter").addEventListener("change", renderTable);
 // One click from "I want to audit what the rules decided on their own" to a
 // table showing exactly that — the state that is otherwise invisible, because
 // an unchecked auto-classification looks identical to a reviewed one.
+// Rewritten for the tabbed layout: the table is in its own view now, so this
+// switches to it instead of scrolling down the page.
 document.getElementById("btn-audit-auto").addEventListener("click", () => {
   document.getElementById("review-filter").value = "auto";
   document.getElementById("search-box").value = "";
   renderTable();
-  document.getElementById("h-transactions").scrollIntoView({ behavior: "smooth", block: "start" });
+  location.hash = "#/transactions";
 });
 document.getElementById("btn-clear-filters").addEventListener("click", () => {
   document.getElementById("search-box").value = "";
   document.getElementById("type-filter").value = "";
   document.getElementById("cat-filter").value = "";
   document.getElementById("review-filter").value = "";
+  document.getElementById("import-filter").value = "";
   refreshSubcategoryFilter();
   renderTable();
 });
@@ -2192,36 +2614,83 @@ function computeCategoryByMonth(rows) {
 const RECURRING_MIN_MONTHS = 3;
 const RECURRING_TOLERANCE = 0.15;
 
+// The one median on the page. An empty list gives 0 rather than NaN: every
+// caller wants a number, and renderMonthOverMonth() can legitimately pass an
+// empty list when no month in the filter has any spending.
 function median(values) {
+  if (!values.length) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+// A yearly charge repeats this many months apart, give or take a month.
+const RECURRING_YEARLY_GAP = [11, 13];
+
+// Who a charge is paid to: the counterparty for a transfer, otherwise the
+// normalized description with digit runs removed, since banks put card
+// numbers, terminal ids and references in there that change between charges
+// from the same merchant. Mirrors overview.recurring_merchant_key().
+function recurringMerchantKey(description, method) {
+  if (method === "MBWay" || method === "Transferência") {
+    const name = extractCounterparty(description || "");
+    if (name) return "peer:" + normalize(name);
+  }
+  return normalize(description ?? "").replace(/[0-9]+/g, "").replace(/\s+/g, " ").trim();
+}
+
+// Grouped by merchant within each sub-category, not by sub-category alone:
+// that reported Netflix at €8.99 and Disney+ at €6.99 as one €7.99 charge,
+// halving the annual cost, and a third subscription in the same sub-category
+// made the amounts look inconsistent so all of them vanished.
+//
+// Yearly when every gap between the months it appears in is about twelve
+// months (one charge a year); otherwise monthly once it reaches
+// RECURRING_MIN_MONTHS distinct months (twelve a year). Mirrors
+// overview.detect_recurring().
 function detectRecurring(rows) {
   const groups = new Map();
-  for (const r of rows.filter(isSpending)) {
-    const label = `${r.Category} / ${r["Sub-category"] || "—"}`;
-    if (!groups.has(label)) groups.set(label, []);
-    groups.get(label).push(r);
+  // Refunds net into every total but are not charges.
+  for (const r of rows.filter(r => isSpending(r) && Number(r["Amount (€)"]) > 0)) {
+    const key = JSON.stringify([r.Category, r["Sub-category"] || "",
+                                recurringMerchantKey(r.Notes, r.Method)]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
   }
 
   const out = [];
-  for (const [label, group] of groups) {
-    const months = new Set(group.map(monthKey));
-    if (months.size < RECURRING_MIN_MONTHS) continue;
+  for (const group of groups.values()) {
+    const monthIndexes = [...new Set(group.map(r => Number(r.Year) * 12 + Number(r.Month)))]
+      .sort((a, b) => a - b);
+    const gaps = monthIndexes.slice(1).map((m, i) => m - monthIndexes[i]);
+    let cadence, perYear;
+    if (gaps.length && gaps.every(g => g >= RECURRING_YEARLY_GAP[0] && g <= RECURRING_YEARLY_GAP[1])) {
+      cadence = "yearly"; perYear = 1;
+    } else if (monthIndexes.length >= RECURRING_MIN_MONTHS) {
+      cadence = "monthly"; perYear = 12;
+    } else {
+      continue;
+    }
     const amounts = group.map(r => Number(r["Amount (€)"]) || 0);
     const typical = median(amounts);
     if (typical <= 0) continue;
     const consistent = amounts.filter(a => Math.abs(a - typical) <= typical * RECURRING_TOLERANCE).length;
     if (consistent / amounts.length < 0.6) continue;
+    // The latest charge names the merchant; on a tie, the later row, as in Python.
+    const latest = group.reduce((best, r) => (String(r.Date) >= String(best.Date) ? r : best));
     out.push({
-      label, typical, months: months.size,
-      lastSeen: group.map(r => String(r.Date)).sort().pop(),
-      annualized: typical * 12,
+      label: String(latest.Notes || ""),
+      category: latest.Category, sub: latest["Sub-category"] || "",
+      cadence, typical, months: monthIndexes.length,
+      lastSeen: String(latest.Date),
+      annualized: typical * perYear,
     });
   }
-  return out.sort((a, b) => b.annualized - a.annualized);
+  // Sorted on the cent-rounded cost Python sorts on, then code-unit order on a
+  // tie, which is what Python's string sort does.
+  const cents = v => Math.round(v * 100);
+  return out.sort((a, b) => (cents(b.annualized) - cents(a.annualized))
+    || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
 }
 
 // Cheap, non-destructive consistency checks. These surface problems the charts
@@ -2289,6 +2758,13 @@ function computeDataHealth(rows) {
       derived ? "Auto-applied rows carry the category of an identical description but were not individually checked — they're marked \"auto\" in the table." : "",
       reviewsDirty ? "Unsaved changes — download review_decisions.json to share them with the CLI." : "",
     ].filter(Boolean).join(" ") });
+
+  const refunds = rows.filter(isRefundRow);
+  if (refunds.length) {
+    checks.push({ ok: true,
+      text: `${refunds.length} refund(s), ${fmtEur(-sumAmount(refunds))} back, netted against the category of the purchase.`,
+      detail: "Stored as negative expenses, so they lower that category's spending instead of counting as income." });
+  }
 
   const missingMethod = rows.filter(r => !r.Method || r.Method === UNSPECIFIED_METHOD).length;
   if (missingMethod) {
@@ -2445,6 +2921,7 @@ function renderAnalysis(rows) {
     const past = keys.filter(k => k <= currentKey);
     monthSel.value = (past.length ? past : keys)[(past.length ? past : keys).length - 1];
   }
+  syncMonthSwitcher();
 
   const statsEl = document.getElementById("analysis-stats");
   const noteEl = document.getElementById("analysis-note");
@@ -2457,6 +2934,10 @@ function renderAnalysis(rows) {
     document.getElementById("recurring-note").textContent = "";
     document.getElementById("biggest-body").innerHTML = "";
     ["pacing", "catTrend", "topSub"].forEach(destroyChart);
+    document.getElementById("hero-sentence").textContent = "No transactions loaded yet.";
+    document.getElementById("hero-figures").innerHTML = "";
+    document.getElementById("pacing-table").innerHTML = "";
+    renderMonthAlerts([]);
     return;
   }
 
@@ -2468,7 +2949,8 @@ function renderAnalysis(rows) {
   renderCategoryTrendChart(rows);
   renderTopSubcategories(rows, analysis);
   renderRecurring(rows);
-  renderBiggestExpenses(rows, analysis);
+  renderMonthHero(analysis);
+  renderMonthAlerts(renderBiggestExpenses(rows, analysis));
 }
 
 // ---------------------------------------------------------------------
@@ -2614,36 +3096,195 @@ function renderAnalysisStats(a) {
   }
 }
 
+// A vertical "today" line on the pacing chart. Inline rather than a vendored
+// annotation plugin: one line and a word don't justify a dependency.
+function todayMarkerPlugin(index) {
+  return {
+    id: "todayMarker",
+    afterDatasetsDraw(chart) {
+      const x = chart.scales.x.getPixelForValue(index);
+      const { top, bottom, right } = chart.chartArea;
+      const ctx = chart.ctx;
+      const flip = x > right - 48;
+      ctx.save();
+      ctx.strokeStyle = cssVar("--muted");
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.fillStyle = cssVar("--muted");
+      ctx.font = `600 11px "Public Sans", system-ui, sans-serif`;
+      ctx.textAlign = flip ? "right" : "left";
+      ctx.fillText("Today", x + (flip ? -4 : 4), top + 10);
+      ctx.restore();
+    },
+  };
+}
+
+// Extends the original pacing chart: the month's spend (solid, filled), and
+// for a running month a dashed projection from today to the last day at the
+// current daily pace, plus the baseline average (dotted) and a "today" marker.
+// A plan line joins it with budgets in a later phase.
 function renderPacingChart(rows, a) {
   destroyChart("pacing");
   const pace = computeSpendingPace(rows, a);
+  const accent = cssVar("--accent");
+  const n = a.baselineKeys.length;
+  const running = a.isCurrentMonth && a.elapsedDays < a.totalDays;
+
   const datasets = [{
-    label: monthLabel(a.key), data: pace.current,
-    borderColor: cssVar("--series-2"), backgroundColor: cssVar("--series-2") + "1a",
-    borderWidth: 2, pointRadius: 0, fill: true, tension: 0.1, spanGaps: false,
+    label: `Spent in ${monthLabel(a.key)}`, data: pace.current,
+    borderColor: accent, backgroundColor: accent + "1f",
+    borderWidth: 2.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: false,
   }];
+  let projection = null;
+  if (running) {
+    const from = a.elapsedDays - 1;
+    const start = pace.current[from] || 0;
+    const step = (a.projected - start) / (a.totalDays - a.elapsedDays);
+    projection = pace.labels.map((_, i) => (i < from ? null : start + step * (i - from)));
+    datasets.push({
+      label: "Projection at the current daily pace", data: projection,
+      borderColor: accent, borderWidth: 2, borderDash: [6, 5], pointRadius: 0, fill: false, tension: 0,
+    });
+  }
   if (pace.baseline) {
     datasets.push({
-      label: `${a.baselineKeys.length}-month average`, data: pace.baseline,
-      borderColor: cssVar("--series-1"), borderWidth: 2, borderDash: [5, 4],
+      label: `${n}-month average`, data: pace.baseline,
+      borderColor: cssVar("--baseline"), borderWidth: 2, borderDash: [2, 4],
       pointRadius: 0, fill: false, tension: 0.1,
     });
   }
+
+  const base = baseChartOptions();
   charts.pacing = new Chart(document.getElementById("chart-pacing"), {
     type: "line",
     data: { labels: pace.labels, datasets },
     options: baseChartOptions({
+      // The legend is written out in words under the chart instead: line
+      // styles are the only thing telling these series apart.
+      plugins: { legend: { display: false }, tooltip: base.plugins.tooltip },
       scales: {
         x: { title: { display: true, text: "Day of month", color: cssVar("--text-muted") },
              grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted"), maxTicksLimit: 10 } },
         y: { grid: { color: cssVar("--gridline") }, ticks: { color: cssVar("--text-muted") }, beginAtZero: true },
       },
     }),
+    plugins: a.isCurrentMonth ? [todayMarkerPlugin(a.elapsedDays - 1)] : [],
   });
+
   const endOfMonth = pace.current.filter(v => v !== null).pop() || 0;
   describeChart("chart-pacing", `Cumulative spending through ${monthLabel(a.key)}, reaching ${fmtEur(endOfMonth)}`
-    + (pace.baseline ? `, against a ${a.baselineKeys.length}-month average ending at ${fmtEur(pace.baseline[pace.baseline.length - 1])}.` : "."));
+    + (running ? ` by day ${a.elapsedDays}, projected to reach ${fmtEur(a.projected)}` : "")
+    + (pace.baseline ? `, against a ${n}-month average ending at ${fmtEur(pace.baseline[pace.baseline.length - 1])}.` : "."));
+
+  const legend = [`Solid line: spent so far in ${monthLabel(a.key)}.`];
+  if (running) legend.push(`Dashed: where the month lands at the current daily pace. The vertical line is today.`);
+  if (pace.baseline) legend.push(`Dotted: the ${n}-month average at the same day — above it means ahead of your usual pace.`);
+  document.getElementById("pacing-legend").textContent = legend.join(" ");
+
+  const headers = ["Day", "Spent"];
+  if (projection) headers.push("Projection");
+  if (pace.baseline) headers.push(`${n}-month average`);
+  renderDataTable("pacing-table", headers, pace.labels.map((day, i) => {
+    const cells = [String(day), pace.current[i] === null ? "—" : fmtEur2(pace.current[i])];
+    if (projection) cells.push(projection[i] === null ? "—" : fmtEur2(projection[i]));
+    if (pace.baseline) cells.push(fmtEur2(pace.baseline[i]));
+    return cells;
+  }), `Cumulative spending by day in ${monthLabel(a.key)}`);
 }
+
+// ---------------------------------------------------------------------
+// This month: the hero sentence, its figures and the alert cards.
+// ---------------------------------------------------------------------
+function monthName(key) {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
+}
+
+// The month's answer in one sentence. Direction is a word ("over"/"under"),
+// never a colour. With no budgets yet, the comparison is the baseline average.
+function heroSentence(a) {
+  const name = monthName(a.key);
+  const n = a.baselineKeys.length;
+  const versus = (amount) => {
+    if (!a.baseline) return ".";
+    const diff = amount - a.baseline;
+    return `, which is ${fmtEur(Math.abs(diff))} ${diff >= 0 ? "over" : "under"} the ${n}-month average.`;
+  };
+  if (a.key > localDateIso().slice(0, 7)) {
+    return `${name} ${a.year} hasn't started yet; ${fmtEur(a.spending)} is already dated in it.`;
+  }
+  if (a.isCurrentMonth) {
+    return `${fmtEur(a.spending)} spent by day ${a.elapsedDays}. At this pace ${name} lands near `
+      + `${fmtEur(a.projected)}${versus(a.projected)}`;
+  }
+  return `${name} closed at ${fmtEur(a.spending)}${versus(a.spending).replace(", which is", ",")}`;
+}
+
+function renderMonthHero(a) {
+  const sentence = document.getElementById("hero-sentence");
+  const text = heroSentence(a);
+  // Only on change: it is a live region, and re-announcing the same sentence
+  // after every save would be noise.
+  if (sentence.textContent !== text) sentence.textContent = text;
+
+  const n = a.baselineKeys.length;
+  const figures = [
+    { label: a.isCurrentMonth ? "Savings rate so far" : "Savings rate",
+      value: a.savingsRate === null ? "—" : `${a.savingsRate.toFixed(0)}%`,
+      sub: a.savingsRate === null ? "No income recorded this month" : `${fmtEur(a.net)} left of ${fmtEur(a.income)} earned` },
+  ];
+  if (a.baseline) {
+    const pct = ((a.isCurrentMonth ? a.projected : a.spending) / a.baseline - 1) * 100;
+    figures.push({ label: `Against the ${n}-month average`, value: fmtPct(pct),
+      sub: `${pct >= 0 ? "More" : "Less"} than ${fmtEur(a.baseline)}${a.isCurrentMonth ? ", at this pace" : ""}` });
+  } else {
+    figures.push({ label: "Against the average", value: "—", sub: "Not enough earlier months yet" });
+  }
+  figures.push(a.isCurrentMonth
+    ? { label: "At this daily pace", value: fmtEur(a.projected),
+        sub: `${fmtEur2(a.perDay)} a day for ${a.totalDays} days` }
+    : { label: "Per day", value: fmtEur2(a.perDay), sub: `Over ${a.totalDays} days` });
+
+  document.getElementById("hero-figures").innerHTML = figures.map(f => `
+    <div>
+      <dt>${esc(f.label)}</dt>
+      <dd><span class="figure">${esc(f.value)}</span><span class="figure-sub">${esc(f.sub)}</span></dd>
+    </div>`).join("");
+}
+
+function showAlert(id, title, text) {
+  const card = document.getElementById(id);
+  card.hidden = !title;
+  if (!title) return;
+  document.getElementById(`h-${id}`).textContent = title;
+  document.getElementById(`${id}-text`).textContent = text;
+}
+
+// Review and data health look at the whole store, like their own tabs do;
+// unusual amounts follow the selected month, like the card they point at.
+function renderMonthAlerts(outliers) {
+  const queue = reviewQueue();
+  const oldest = queue.map(r => String(r.Date)).sort()[0];
+  showAlert("alert-review", queue.length ? `${queue.length} to review` : "",
+    queue.length ? `Nothing matched these, so they're waiting for a category. The oldest is from ${oldest}.` : "");
+
+  const top = (outliers || []).slice().sort((x, y) => y.amount - x.amount)[0];
+  showAlert("alert-outliers",
+    outliers && outliers.length ? `${outliers.length} unusual amount${outliers.length === 1 ? "" : "s"}` : "",
+    top ? `Largest: ${top.row.Notes || top.key}, ${fmtEur2(top.amount)} — ${top.ratio.toFixed(1)}x the usual for its sub-category.` : "");
+
+  const issues = store.length ? computeDataHealth(store).filter(c => !c.ok) : [];
+  showAlert("alert-health",
+    issues.length ? `${issues.length} data health issue${issues.length === 1 ? "" : "s"}` : "",
+    issues.length ? issues[0].text : "");
+}
+
+document.getElementById("alert-outliers-go").addEventListener("click", () => {
+  const heading = document.getElementById("h-biggest");
+  heading.scrollIntoView({ block: "start" });
+  heading.setAttribute("tabindex", "-1");
+  heading.focus({ preventScroll: true });
+});
 
 function renderCategoryTrendChart(rows) {
   destroyChart("catTrend");
@@ -2967,7 +3608,7 @@ function renderRecurring(rows) {
   const recurring = detectRecurring(rows);
   document.getElementById("recurring-body").innerHTML = recurring.map(r => `
     <tr>
-      <td>${esc(r.label)}<span class="row-note">last seen ${esc(r.lastSeen)}</span></td>
+      <td>${esc(r.label)}<span class="row-note">${esc(r.category)} / ${esc(r.sub || "—")} · ${esc(r.cadence)} · last seen ${esc(r.lastSeen)}</span></td>
       <td class="num">${esc(fmtEur2(r.typical))}</td>
       <td class="num">${r.months}</td>
       <td class="num">${esc(fmtEur(r.annualized))}</td>
@@ -2975,9 +3616,11 @@ function renderRecurring(rows) {
   const total = recurring.reduce((sum, r) => sum + r.annualized, 0);
   document.getElementById("recurring-note").textContent = recurring.length
     ? `${recurring.length} recurring commitment(s) — about ${fmtEur(total)} a year, ${fmtEur(total / 12)} a month. `
-      + `Detected as a sub-category appearing in ${RECURRING_MIN_MONTHS}+ months for an amount within `
-      + `${Math.round(RECURRING_TOLERANCE * 100)}% of its own median.`
-    : `Nothing repeats consistently enough yet — needs ${RECURRING_MIN_MONTHS}+ months of history per charge.`;
+      + `Detected per merchant within a sub-category, for an amount within `
+      + `${Math.round(RECURRING_TOLERANCE * 100)}% of its own median: monthly once it appears in `
+      + `${RECURRING_MIN_MONTHS}+ months, yearly when it repeats about every 12 months.`
+    : `Nothing repeats consistently enough yet — needs ${RECURRING_MIN_MONTHS}+ months of history per charge, `
+      + `or two charges about a year apart.`;
 }
 
 // A transaction is an outlier when it is large *for its own sub-category*,
@@ -2992,18 +3635,12 @@ function renderRecurring(rows) {
 const OUTLIER_MULTIPLE = 2.5;
 const OUTLIER_FLOOR = 25;
 
-function median(values) {
-  if (!values.length) return 0;
-  const sorted = values.slice().sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
 // Typical amount per Category/Sub-category across everything loaded.
 function subcategoryMedians(rows) {
   const byKey = new Map();
   for (const r of rows) {
-    if (!isSpending(r)) continue;
+    // Refunds are not spends: they would drag a sub-category's "usual" down.
+    if (!isSpending(r) || !(Number(r["Amount (€)"]) > 0)) continue;
     const key = `${r.Category}/${r["Sub-category"]}`;
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(Number(r["Amount (€)"]) || 0);
@@ -3015,7 +3652,8 @@ function subcategoryMedians(rows) {
 
 function renderBiggestExpenses(rows, a) {
   const medians = subcategoryMedians(rows);
-  const monthSpending = monthRows(rows, a.key).filter(isSpending);
+  // Refunds are netted into the month's total (a.spending) but are not spends.
+  const monthSpending = monthRows(rows, a.key).filter(r => isSpending(r) && Number(r["Amount (€)"]) > 0);
 
   const scored = monthSpending.map(r => {
     const amount = Number(r["Amount (€)"]) || 0;
@@ -3071,6 +3709,7 @@ function renderBiggestExpenses(rows, a) {
         : `Nothing unusual: no spend reached ${OUTLIER_MULTIPLE}x its sub-category's usual amount. `
           + `Showing the ${Math.min(shown.length, 12)} largest.`)
     : "No spending recorded in this month.";
+  return outliers;
 }
 
 // ---------------------------------------------------------------------
@@ -3179,8 +3818,10 @@ function renderTable() {
   const catF = document.getElementById("cat-filter").value;
   const subF = document.getElementById("subcat-filter").value;
   const reviewF = document.getElementById("review-filter").value;
+  const importF = document.getElementById("import-filter").value;
   const matching = filteredRows()
     .filter(r => !typeF || r.Type === typeF)
+    .filter(r => !importF || String(r["Source File"] ?? "") === importF)
     .filter(r => !catF || r.Category === catF)
     .filter(r => !subF || r["Sub-category"] === subF)
     // "auto" is the interesting one: rows the rules answered on their own and
@@ -3209,6 +3850,7 @@ function renderTable() {
       <td class="num">${Number(r["Amount (€)"] || 0).toFixed(2)}</td>
       <td>
         ${esc(r.Notes || "")}
+        ${isRefundRow(r) ? `<span class="badge refund" title="Money back for a purchase, netted against ${esc(r.Category)}">refund</span>` : ""}
         ${r[REVIEWED_AT] ? (isDerivedReview(r)
             ? `<span class="badge auto" title="Auto-applied ${esc(r[REVIEWED_AT])} from another review of the same description">auto</span>`
             : `<span class="badge reviewed" title="Reviewed ${esc(r[REVIEWED_AT])}">reviewed</span>`) : ""}
@@ -3289,9 +3931,66 @@ function refreshSelectionUi() {
   all.indeterminate = count > 0 && count < inQueue.size;
 }
 
+// Every import file with the date of its newest row, newest first. Manual
+// entries are not an import, and a future-dated row (a typo Data health
+// flags) doesn't get to make its file look like next month's import.
+function importFiles() {
+  const today = localDateIso();
+  const latest = new Map();
+  for (const r of store) {
+    const file = String(r["Source File"] ?? "");
+    if (!file || file === "Manual entry") continue;
+    const date = String(r.Date);
+    if (date > today) { if (!latest.has(file)) latest.set(file, ""); continue; }
+    if (!latest.has(file) || date > latest.get(file)) latest.set(file, date);
+  }
+  return [...latest.entries()].map(([file, date]) => ({ file, date }))
+    .sort((a, b) => (b.date.localeCompare(a.date)) || (a.file < b.file ? -1 : 1));
+}
+
+function renderReviewImport() {
+  const card = document.getElementById("review-import");
+  const latest = importFiles()[0];
+  card.hidden = !latest;
+  if (!latest) return;
+  const when = latest.date ? ` ${monthName(latest.date.slice(0, 7))}` : "";
+  const rows = store.filter(r => String(r["Source File"] ?? "") === latest.file);
+  const queued = rows.filter(r => !r[REVIEWED_AT] && isUnclassified(r)).length;
+  const auto = rows.filter(r => !r[REVIEWED_AT] && !isUnclassified(r)).length;
+  const filed = rows.length - queued;
+  document.getElementById("h-review-import").textContent = `Review the${when} import`;
+  document.getElementById("review-import-summary").textContent =
+    `${rows.length} came in from ${latest.file}. ${filed} ${filed === 1 ? "was" : "were"} filed by your rules and ` +
+    `saved reviews. ${queued ? `${queued} need${queued === 1 ? "s" : ""} a decision, below.` : "Nothing needs a decision."}`;
+  document.getElementById("review-import-auto").textContent = auto
+    ? `${auto} filed by your rules and never checked by hand.`
+    : "Every rule-filed row in it has been checked.";
+  const show = document.getElementById("btn-import-show");
+  show.hidden = !auto;
+  show.dataset.file = latest.file;
+}
+
+// Opens the Transactions tab on exactly those rows: this import, filed by a
+// rule, never checked.
+document.getElementById("btn-import-show").addEventListener("click", (e) => {
+  document.getElementById("search-box").value = "";
+  document.getElementById("type-filter").value = "";
+  document.getElementById("cat-filter").value = "";
+  refreshCategoryFilters();
+  document.getElementById("import-filter").value = e.currentTarget.dataset.file || "";
+  document.getElementById("review-filter").value = "auto";
+  renderTable();
+  location.hash = "#/transactions";
+});
+
 function renderReviewQueue() {
+  renderReviewImport();
   const queue = reviewQueue().sort((a, b) => String(b.Date).localeCompare(String(a.Date)));
   document.getElementById("review-count").textContent = queue.length;
+  // The sidebar badge is the same number, so the queue is visible from every tab.
+  const navBadge = document.getElementById("nav-review-badge");
+  navBadge.innerHTML = `${queue.length}<span class="sr-only"> to review</span>`;
+  navBadge.hidden = !queue.length;
   document.getElementById("review-empty").style.display = queue.length ? "none" : "block";
   document.getElementById("review-table-wrap").style.display = queue.length ? "block" : "none";
   document.getElementById("review-toolbar").style.display = queue.length ? "flex" : "none";
@@ -3306,7 +4005,7 @@ function renderReviewQueue() {
                ${reviewSelection.has(id) ? "checked" : ""}
                aria-label="Select the ${esc(r.Type.toLowerCase())} of ${esc(Number(r["Amount (€)"] || 0).toFixed(2))} euros on ${esc(r.Date)} for batch review">
       </td>
-      <td><span class="pill ${isIncome ? "income" : "expense"}">${esc(r.Type)}</span></td>
+      <td><span class="pill ${isIncome ? "income" : "expense"}">${isRefundRow(r) ? "Refund" : esc(r.Type)}</span></td>
       <td>${esc(r.Date)}</td>
       <td>${esc(r.Notes || "")}</td>
       <td>${esc(r.Category)}${r["Sub-category"] ? " / " + esc(r["Sub-category"]) : ""}</td>
@@ -3481,6 +4180,12 @@ function renderTypeBanner(rows) {
   const type = [...types][0] || TYPE_EXPENSE;
   const isIncome = type === TYPE_INCOME;
   banner.className = `type-banner ${isIncome ? "income" : "expense"}`;
+  if (rows.length && rows.every(isRefundRow)) {
+    badge.textContent = "Refund";
+    explainer.textContent = `Money back — ${fmtEur2(-total)}. It comes off the spending of whatever ` +
+      `was bought: pick that from the expense list below.`;
+    return type;
+  }
   badge.textContent = type;
   explainer.textContent = isIncome
     ? `Money in — ${fmtEur2(total)}. Categories below are the income list.`
@@ -3591,6 +4296,37 @@ document.getElementById("rp-apply-siblings").addEventListener("change", (e) => s
 // across the change: a sub-category is only meaningful under its own category.
 document.getElementById("rp-category").addEventListener("change", () => refreshSubcategoryOptions());
 
+// Marking (or unmarking) a refund switches the panel between the income and
+// expense lists. Nothing is written until Save.
+document.getElementById("rp-refund").addEventListener("change", (e) => {
+  const panel = document.getElementById("review-panel");
+  const row = store.find(r => String(r.transaction_id) === String(panel.dataset.transactionId));
+  if (!row) return;
+  const refund = e.target.checked;
+  const type = refund ? TYPE_EXPENSE : TYPE_INCOME;
+  const amount = Math.abs(Number(row["Amount (€)"]) || 0);
+  panel.dataset.txnType = type;
+  renderTypeBanner([{ ...row, Type: type, "Amount (€)": refund ? -amount : amount }]);
+
+  const catSel = document.getElementById("rp-category");
+  const keep = catSel.value;
+  const pickable = type === TYPE_INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  catSel.innerHTML = `<option value="" disabled>Choose a category…</option>` +
+    pickable.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  catSel.value = pickable.includes(keep) ? keep : "";
+  refreshSubcategoryOptions(document.getElementById("rp-subcategory").value);
+
+  // The identical-description rows were found for the row as it is now; under
+  // the other type their pair would be wrong, so the offer goes away.
+  if (refund !== isRefundRow(row)) {
+    document.getElementById("rp-siblings-field").style.display = "none";
+    document.getElementById("rp-siblings-list").innerHTML = "";
+    document.getElementById("rp-apply-siblings").checked = false;
+  } else {
+    renderSiblingOffer(row);
+  }
+});
+
 let lastFocusedBeforePanel = null;
 
 function openReviewPanel(transactionId, invoker) {
@@ -3651,6 +4387,11 @@ function openReviewPanel(transactionId, invoker) {
   const methodSel = document.getElementById("rp-method");
   methodSel.innerHTML = METHODS.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
   methodSel.value = row.Method || "Cartão";
+
+  // Money in can be a refund; money out never is.
+  const refundField = document.getElementById("rp-refund-field");
+  refundField.style.display = (row.Type === TYPE_INCOME || isRefundRow(row)) ? "block" : "none";
+  document.getElementById("rp-refund").checked = isRefundRow(row);
 
   // Two mutually exclusive "remember" offers, chosen by the payment rail.
   //
@@ -3743,7 +4484,7 @@ function openBatchReviewPanel(rows, invoker) {
   methodSel.value = "";
 
   // None of the "remember this" affordances apply to an ad-hoc grouping.
-  ["rp-siblings-field", "rp-remember-field", "rp-remember-peer-field"]
+  ["rp-siblings-field", "rp-remember-field", "rp-remember-peer-field", "rp-refund-field"]
     .forEach(id => { document.getElementById(id).style.display = "none"; });
   document.getElementById("rp-apply-siblings").checked = false;
   document.getElementById("rp-remember").checked = false;
@@ -3827,7 +4568,11 @@ document.getElementById("rp-save").addEventListener("click", () => {
     return;
   }
   const subCategory = document.getElementById("rp-subcategory").value;
-  if (!assertValidPair(row.Type, category, subCategory)) return;
+  // The refund box, when shown, decides the type the pair belongs to.
+  const refundShown = document.getElementById("rp-refund-field").style.display !== "none";
+  const wantRefund = refundShown && document.getElementById("rp-refund").checked;
+  const targetType = refundShown ? (wantRefund ? TYPE_EXPENSE : TYPE_INCOME) : row.Type;
+  if (!assertValidPair(targetType, category, subCategory)) return;
   if (subCategory === UNCLASSIFIED_SUB) {
     setStatus(`"${UNCLASSIFIED_SUB}" is the queue itself — pick a real sub-category to clear this row.`, true);
     document.getElementById("rp-subcategory").focus();
@@ -3835,7 +4580,7 @@ document.getElementById("rp-save").addEventListener("click", () => {
   }
   const method = document.getElementById("rp-method").value;
   const reviewNote = document.getElementById("rp-review-note").value.trim();
-  const txnType = row.Type === TYPE_INCOME ? "income" : "expense";
+  const txnType = targetType === TYPE_INCOME ? "income" : "expense";
 
   const visible = el => document.getElementById(el).style.display !== "none";
   const rememberMerchant = visible("rp-remember-field") && document.getElementById("rp-remember").checked;
@@ -3851,6 +4596,7 @@ document.getElementById("rp-save").addEventListener("click", () => {
     ? findSiblings(row).filter(r => picked.has(String(r.transaction_id)))
     : [];
 
+  const reshaped = refundShown && setRefundShape(row, wantRefund);
   row.Category = category;
   row["Sub-category"] = subCategory;
   row.Method = method;
@@ -3864,6 +4610,10 @@ document.getElementById("rp-save").addEventListener("click", () => {
   recordReviewDecision(row, reviewNote);
 
   const messages = [`Saved as ${category} / ${subCategory}.`];
+  if (reshaped) {
+    messages.push(wantRefund ? `Filed as a refund: it now lowers ${category} spending instead of counting as income.`
+                             : `Filed as income again, no longer a refund.`);
+  }
   if (reviewNote) messages.push(`Note kept with the transaction.`);
 
   let undo = null;
@@ -4007,6 +4757,7 @@ function applyToSiblings(siblings, sourceRow, { category, subCategory, method, o
       reviewed_at: r[REVIEWED_AT],
       notes: r.Notes || "",
       derived_from: sourceRow.transaction_id,
+      ...(isRefundRow(r) ? { refund: true } : {}),
     };
   }
   reviewsDirty = true;
@@ -4067,6 +4818,15 @@ function refreshFilters() {
   const current = yearSel.value;
   yearSel.innerHTML = `<option value="all">All years</option>` + years.map(y => `<option value="${y}">${y}</option>`).join("");
   if (years.map(String).includes(current)) yearSel.value = current;
+
+  // Import files, newest import first, so "Show them" on the Review tab can
+  // narrow the table to one file.
+  const importSel = document.getElementById("import-filter");
+  const currentImport = importSel.value;
+  const imports = importFiles();
+  importSel.innerHTML = `<option value="">All imports</option>` +
+    imports.map(f => `<option value="${esc(f.file)}">${esc(f.file)}</option>`).join("");
+  if (imports.some(f => f.file === currentImport)) importSel.value = currentImport;
 
   refreshCategoryFilters();
 }
@@ -4150,6 +4910,7 @@ function renderAll() {
   renderTable();
   renderReviewQueue();
   renderDataHealth(store);
+  renderStoreBox();
 }
 
 // ---------------------------------------------------------------------
@@ -4232,6 +4993,117 @@ document.getElementById("mf-add").addEventListener("click", () => {
   }
   renderAll();
 });
+
+// ---------------------------------------------------------------------
+// App shell: the store box, the month switcher and the tab router.
+// ---------------------------------------------------------------------
+
+// What is loaded, for the sidebar. Set where a store arrives (auto-load,
+// either file picker), cleared by Clear, and touched by a successful save.
+let storeInfo = { kind: null, modified: null };
+
+function noteStoreSource(kind, modified) {
+  storeInfo = { kind, modified: modified && !isNaN(modified) ? modified : null };
+  renderStoreBox();
+}
+
+function renderStoreBox() {
+  document.getElementById("store-kind").textContent =
+    storeInfo.kind || (store.length ? "Only in this tab" : "Nothing loaded");
+  document.getElementById("store-modified").textContent = storeInfo.modified
+    ? storeInfo.modified.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric",
+                                                   hour: "2-digit", minute: "2-digit" })
+    : "—";
+  document.getElementById("store-rows").textContent = store.length.toLocaleString("en-GB");
+  // Same rule as the Data view's "Add monthly file(s)": available once a store
+  // is loaded, cleared or started by hand.
+  document.getElementById("btn-import").disabled =
+    document.getElementById("btn-monthly").classList.contains("disabled");
+}
+
+document.getElementById("btn-import").addEventListener("click", () => {
+  document.getElementById("file-monthly").click();
+});
+
+// The month switcher drives #analysis-month, which stays the source of truth
+// (newest first). Changing either one moves the other.
+function syncMonthSwitcher() {
+  const sel = document.getElementById("analysis-month");
+  const i = sel.selectedIndex;
+  const key = i >= 0 ? sel.value : null;
+  const label = document.getElementById("month-label");
+  const day = document.getElementById("month-day");
+  document.getElementById("month-prev").disabled = i < 0 || i >= sel.options.length - 1;
+  document.getElementById("month-next").disabled = i <= 0;
+  if (!key) { label.textContent = "No data"; day.textContent = ""; return; }
+
+  const [year, month] = key.split("-").map(Number);
+  label.textContent = new Date(Date.UTC(year, month - 1, 1))
+    .toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+  const total = daysInMonth(year, month);
+  const current = localDateIso().slice(0, 7);
+  day.textContent = key === current ? `Day ${new Date().getDate()} of ${total}`
+    : key < current ? `Closed · ${total} days` : "Not started";
+}
+
+function stepMonth(delta) {
+  const sel = document.getElementById("analysis-month");
+  const next = sel.selectedIndex + delta;
+  if (next < 0 || next >= sel.options.length) return;
+  sel.selectedIndex = next;
+  sel.dispatchEvent(new Event("change"));
+}
+// Options run newest first, so "previous" is the next option down.
+document.getElementById("month-prev").addEventListener("click", () => stepMonth(1));
+document.getElementById("month-next").addEventListener("click", () => stepMonth(-1));
+
+// Tabs. Views are the existing DOM moved into wrappers; the URL hash keeps the
+// tab across a reload and makes Back/Forward work. Only "#/name" hashes are
+// routes, so an in-page anchor can never switch the tab by accident.
+const VIEWS = ["month", "review", "trends", "transactions", "data"];
+
+function routeFromHash() {
+  return location.hash.startsWith("#/") ? location.hash.slice(2) : null;
+}
+
+function activeViewHeading() {
+  const view = document.querySelector("main > .view:not([hidden])");
+  return view && view.querySelector("h1");
+}
+
+function showView(name, { focus = true } = {}) {
+  if (!VIEWS.includes(name)) name = "month";
+  for (const v of VIEWS) document.getElementById(`view-${v}`).hidden = v !== name;
+  document.querySelectorAll("nav[aria-label=Main] a[data-view]").forEach(a => {
+    if (a.dataset.view === name) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+  // A chart created inside a hidden view has no size; resize the visible ones.
+  // stop() first: Chart.js defers resize() while an entry animation runs, and
+  // that animation never ends in a background tab (no animation frames).
+  Object.values(charts).forEach(c => {
+    if (c && c.canvas.offsetParent !== null) { c.stop(); c.resize(); }
+  });
+  // Land keyboard and screen-reader users in the new view. Not on first load,
+  // where the page should start at the top like any other.
+  if (focus) activeViewHeading()?.focus({ preventScroll: true });
+  window.scrollTo(0, 0);
+}
+
+window.addEventListener("hashchange", () => {
+  // Back to the bare URL means the default tab; any other non-route anchor is
+  // left alone.
+  const route = routeFromHash();
+  if (route !== null || !location.hash) showView(route || "month");
+});
+
+// The skip link goes to the heading of whichever view is showing.
+document.getElementById("skip-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  activeViewHeading()?.focus();
+});
+
+showView(routeFromHash() || "month", { focus: false });
 
 // Order matters: the review memory has to be in place before the store
 // finishes loading, so decisions are re-applied on arrival rather than one

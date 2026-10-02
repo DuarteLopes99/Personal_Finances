@@ -126,7 +126,10 @@ Every transaction — income or expense — lives in one table with these column
 `transaction_id, Date, Type, Category, Sub-category, Method, Amount (€), Notes, Review Note,
 Reviewed At, Month, Year, Source File`
 
-- **Type** is `Income` or `Expense`.
+- **Type** is `Income` or `Expense`. A **refund** ("Devolução", "Estorno", or anything you mark as
+  one in the review panel) is an `Expense` with a **negative** amount, filed under what was bought,
+  so it lowers that category's spending instead of counting as income. See
+  [docs/categorization.md](docs/categorization.md#refunds-are-negative-spending-not-income).
 - **Method** is the payment rail: `Cartão, MBWay, Transferência, Débito Direto, Cartão
   Alimentação, Dinheiro, Levantamento` (plus `Não especificado` for a handful of historical rows
   that never had one recorded). **MBWay and Transferência are only ever a Method, never a
@@ -187,6 +190,8 @@ Three categories are shaped deliberately:
   that simply aren't spending categories — genuinely miscellaneous, cash withdrawn, money sent to a
   named person — and counting them as backlog would make the queue look permanently unfixable.
 - **`Investimentos`** is money moving pocket-to-pocket, so it is excluded from every expense total.
+- **`Reembolsos`** (income) is money back that is *not* a purchase undone: a tax refund, an
+  insurance payout, a bare "reembolso". A shop refund is netted against the purchase instead.
 - **`Cabelo`** is empty on purpose. It was added so the spend has somewhere to go the first time it
   happens, instead of landing in `Geral/Outros` and being invisible from then on. It deliberately
   has **no keyword rules**: a rule would retro-classify transactions already reviewed into other
@@ -488,10 +493,13 @@ it reports:
   biggest once.
 - **Top sub-categories this month** — "Alimentação is your biggest category" isn't actionable;
   "Restaurante €310 vs Supermercado €180" is.
-- **Recurring commitments** — anything appearing in 3+ distinct months for an amount within 15% of
-  its own median, with the annualized cost. Both halves of that test matter: the median check is
-  what separates Netflix at €8.99 every month from a restaurant that's also monthly but never the
-  same price twice.
+- **Recurring commitments** — charges from the same merchant (or, for a transfer, the same
+  counterparty) within a sub-category, for an amount within 15% of their own median, with the
+  annualized cost. **Monthly** once they appear in 3+ distinct months (twelve charges a year);
+  **yearly** when they repeat about every 12 months (one charge a year). The median check is what
+  separates Netflix at €8.99 every month from a restaurant that's also monthly but never the same
+  price twice; grouping by merchant is what keeps Netflix and Disney+ two charges rather than one
+  averaged one.
 - **Biggest expenses this month**, each as a share of the month.
 
 The card honours the "Exclude Cartão Alimentação" toggle but deliberately ignores the year filter
@@ -556,14 +564,14 @@ means duplicates are caught in every situation that matters, with no extra step:
 - **A file that overlaps with data you already have** — the same check runs against whatever is
   already in `data/transactions.csv` (or already loaded in the browser), regardless of when or how
   it got there.
-- **A manual entry you accidentally add twice** — the "Add a transaction manually" form builds the
+- **A manual entry you accidentally add twice** — the "Add a transaction by hand" form builds the
   same kind of hash, so clicking "Add" twice on identical values only ever produces one row.
 
 What it *can't* catch: two genuinely different transactions that happen to share the same date,
 description, and amount (rare, but possible — e.g. two identical €5 coffees on the same day would
 hash identically and the second would be treated as a duplicate). If you need to start over
 entirely and rebuild from a clean slate — e.g. after experimenting, or to double-check a batch of
-files imports the way you expect — use `scripts/reset_store.py` (CLI) or "🗑 Clear all data"
+files imports the way you expect — use `scripts/reset_store.py` (CLI) or "Clear all data"
 (dashboard), then re-add your files; the same hash-based check applies throughout the rebuild.
 
 ## Usage
@@ -592,7 +600,8 @@ python3 scripts/recategorize.py            # what would change, and why
 python3 scripts/recategorize.py --apply    # backs the store up first
 ```
 It normalizes any pair that has fallen outside the taxonomy (via `LEGACY_ALIASES`, which is also
-how a rename is carried out), then re-runs today's rules over rows still awaiting an answer. It
+how a rename is carried out), converts unreviewed refunds still stored as income into negative
+expenses, then re-runs today's rules over rows still awaiting an answer. It
 never touches a row with `Reviewed At`, never demotes a real category into the review bucket, and
 will refine a row sitting on a catch-all `Outros` sub-category if the rules can now name a specific
 one **within the same category** — a regex may sharpen a human's answer, never overrule it.
@@ -614,7 +623,7 @@ dashboard's auto-load of `data/transactions.csv`, so it comes up empty. From the
 file(s) (xlsx/csv)" — selecting multiple files at once is fine — to categorize and merge new
 months directly in the browser; the merged result is written back to `data/transactions.csv`
 automatically, and "Download updated transactions.csv" remains as a manual export.
-"🗑 Clear all data" resets the in-browser working copy to empty (it only touches what's loaded in
+"Clear all data" resets the in-browser working copy to empty (it only touches what's loaded in
 the tab — clearing also switches the automatic save off, so nothing on disk changes unless you
 download afterward), so you can rebuild from scratch the same way — your saved review decisions
 are kept and re-applied as the rows come back. The "Needs Review" panel lets you fix anything the rules
@@ -628,8 +637,23 @@ adds the month-by-month view ("Monthly spending analytics" below), and the "Excl
 Alimentação (meal card)" checkbox next to the year filter toggles the meal-allowance card in or
 out of every chart and the stat tiles at once ("Excluding the meal-allowance card" above).
 
+**Finding your way around the dashboard.** It is a set of tabs, kept in the address bar
+(`#/month`, `#/review`, …) so a reload stays put and the browser's Back button works:
+
+| Tab | What's there |
+|---|---|
+| **This month** | One sentence on where the month stands, the spending-pace chart with a projection to month end, the savings rate and comparison with your usual month, cards for anything waiting on you (reviews, unusual amounts, data health), the health meters and the month's biggest spends |
+| **Review** | What the latest import left for you, and the Needs review queue |
+| **Trends** | Totals, every chart over time, tracking one category, recurring commitments, month vs month and yearly totals |
+| **Transactions** | The full table with its filters, and "Add a transaction by hand" |
+| **Data** | Loading, adding, saving and clearing files, the Data health checks, and where each file lives |
+
+The month switcher, the year filter, the meal-card toggle and the status line sit in the bar at the
+top of every tab. The sidebar shows how many rows wait for review and what store is loaded, with an
+"Import statement" button for the monthly export. On a phone the sidebar becomes a row of tabs.
+
 **Adding a transaction manually** — for anything with no bank export at all (cash you received or
-spent, a gift, etc.), use the "Add a transaction manually" form: pick Income or Expense, fill in
+spent, a gift, etc.), use the "Add a transaction by hand" form at the top of the Transactions tab: pick Income or Expense, fill in
 the date, amount, category, and any notes, and it's added straight into the store — same charts,
 same table, and saved to `data/transactions.csv` the same way an upload is. It goes through the
 same duplicate check as an upload, so double-clicking "Add" by accident on identical values won't

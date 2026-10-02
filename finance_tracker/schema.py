@@ -20,6 +20,7 @@ from .taxonomy import (
     UNCLASSIFIED_CATEGORY,
     UNCLASSIFIED_SUB,
     UNSPECIFIED_METHOD,
+    is_refund_row,
     is_unclassified,
     is_valid,
     subcategories,
@@ -58,7 +59,7 @@ __all__ = [
     # Re-exported from taxonomy.py
     "EXPENSE_CATEGORIES", "INCOME_CATEGORIES", "MEAL_CARD_METHOD", "METHODS",
     "SAVINGS_CATEGORY", "TYPE_EXPENSE", "TYPE_INCOME", "UNCLASSIFIED_CATEGORY",
-    "UNCLASSIFIED_SUB", "UNSPECIFIED_METHOD", "is_unclassified", "is_valid",
+    "UNCLASSIFIED_SUB", "UNSPECIFIED_METHOD", "is_refund_row", "is_unclassified", "is_valid",
     "subcategories",
     # Owned by this module
     "TRANSACTION_ID", "DATE", "TYPE", "CATEGORY", "SUBCATEGORY", "METHOD",

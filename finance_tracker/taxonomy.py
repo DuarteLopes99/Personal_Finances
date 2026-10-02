@@ -177,9 +177,11 @@ INCOME_TAXONOMY = {
         "Desemprego",
         CATCH_ALL_SUB,
     ),
-    # Money coming back, not money earned — worth its own line so it never
-    # inflates apparent income. IRS lives here rather than under Subsídios
-    # because a tax refund is a repayment, not a benefit.
+    # Money coming back that is NOT a purchase being undone: a tax refund, an
+    # insurance payout, a generic "reembolso" or "crédito a favor". IRS lives
+    # here rather than under Subsídios because a tax refund is a repayment, not
+    # a benefit. A shop refund ("Devolução", "Estorno") does not land here any
+    # more — see REFUNDS below: it is netted against the purchase instead.
     "Reembolsos": (
         "IRS",
         "Seguros",
@@ -202,6 +204,32 @@ INCOME_CATEGORIES = list(INCOME_TAXONOMY)
 # Category excluded from the "Net" expense total in Monthly_Overview — money
 # saved is not money spent.
 SAVINGS_CATEGORY = "Investimentos"
+
+# ---------------------------------------------------------------------------
+# REFUNDS
+# ---------------------------------------------------------------------------
+# A shop refund is a purchase being undone, not income. Filed as income it
+# inflated income AND left the purchase in spending: return a €60 jacket and
+# the month showed €60 more earned and €60 still spent on clothes.
+#
+# So a refund is stored as an EXPENSE with a NEGATIVE amount, under the pair of
+# the purchase it undoes (`Devolução Zara` -> Lazer / Roupa, -59.99). Every
+# total then nets on its own, in both engines, with no special case. It uses
+# the expense taxonomy and adds no pairs to it; what makes a row a refund is
+# exactly this shape, checked by is_refund_row() below.
+#
+# Which descriptions count is decided in categorize.py (REFUND_PATTERNS); the
+# dashboard's review panel can also mark any incoming payment as a refund, and
+# that choice is kept in review_decisions.json as `"refund": true`.
+REFUND_LABEL = "Reembolso"
+
+
+def is_refund_row(txn_type: str, amount) -> bool:
+    """Whether a stored row is a refund: an Expense with a negative amount."""
+    try:
+        return txn_type == TYPE_EXPENSE and float(amount) < 0
+    except (TypeError, ValueError):
+        return False
 
 # Payment rails. Not part of the Category taxonomy and never mixed into it:
 # a rail is an observed property of how the money moved, while a category is a
